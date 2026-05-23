@@ -1,12 +1,11 @@
 import random
 
-# ─── CARD CLASS ──────────────────────────────────────────────────────────────
-
+#CARD CLASS same as cards.py but added JSON tag
 class Card:
     def __init__(self, suit, number):
         self.suit = suit
         self.number = number
-        self.color = "Black" if suit in ("Club", "Spade") else "Red"
+        self.color = "Black" if suit == "Club" or suit == "Spade" else "Red"
         if self.number == 3 and self.suit == "Spade":
             self.points = 30
         elif self.number == 5:
@@ -20,7 +19,7 @@ class Card:
         names = {11: "J", 12: "Q", 13: "K", 14: "A"}
         num = names.get(self.number, str(self.number))
         return f"{num} of {self.suit}s"
-
+        
     def __repr__(self):
         return self.__str__()
 
@@ -39,7 +38,7 @@ class Card:
 
 def build_deck():
     suits   = ["Club", "Spade", "Heart", "Diamond"]
-    numbers = range(3, 15)          # 3–14 (2s removed per game rules)
+    numbers = range(3, 15) 
     return [Card(suit, number) for suit in suits for number in numbers]
 
 
