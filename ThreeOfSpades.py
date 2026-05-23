@@ -1,7 +1,7 @@
 import os
-import cards
+import game.cards as cards
 import random
-import Bidder
+import game.Bidder as Bidder
 print("---------------------------------------")
 print("|                                     |")
 print("|             3 of Spades             |")
