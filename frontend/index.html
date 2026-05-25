@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3 of Spades - Card Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-container">
+      <div class="lobby-content">
+        
+        <!-- Game Title -->
+        <div class="game-header">
+          <h1 class="game-title">3 of Spades</h1>
+          <div class="spade-icon">♠</div>
+          <p class="game-subtitle">A Multiplayer Card Game</p>
+        </div>
+
+        <!-- How to Play Preview -->
+        <div class="how-to-play">
+          <div class="how-to-item">
+            <div class="icon">👥</div>
+            <p><strong>6 or 8 Players</strong><br>Dynamic teams that change each round</p>
+          </div>
+          <div class="how-to-item">
+            <div class="icon">🎯</div>
+            <p><strong>Bid & Win</strong><br>Bid points, pick your team, declare trump</p>
+          </div>
+          <div class="how-to-item">
+            <div class="icon">🏆</div>
+            <p><strong>250 Points</strong><br>Per round to claim victory</p>
+          </div>
+        </div>
+
+        <div class="join-form">
+          <div class="form-group">
+            <label for="player-name">Enter Your Name</label>
+            <input 
+              type="text" 
+              id="player-name" 
+              placeholder="Your nickname" 
+              maxlength="20"
+            >
+          </div>
+
+          <div class="form-buttons">
+            <button id="create-room-btn" class="btn btn-primary">Create Room</button>
+            <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
