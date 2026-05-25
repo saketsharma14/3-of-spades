@@ -135,7 +135,30 @@
       <div class="bid-actions">
         <button id="submit-bid-btn" class="btn btn-primary">Submit Bid</button>
         <button id="pass-bid-btn" class="btn btn-secondary">Pass</button>
-        <button id="close-bidding-btn" class="btn btn-secondary" style="display:none">Close Bidding</button>
+        <!-- bidder only: request-close instead of unilateral close -->
+        <button id="request-close-btn" class="btn btn-secondary" style="display:none">Request to Close Bidding</button>
+      </div>
+
+      <!-- NEW: Close-request banner shown to non-bidders when bidder has requested close -->
+      <div id="close-request-banner" class="close-request-banner" style="display:none">
+        <p>
+          <strong id="close-req-bidder">-</strong> wants to close bidding at
+          <strong id="close-req-amount">-</strong> points.
+          <br>
+          You can either counter-bid using the controls above, or pass now to confirm.
+        </p>
+        <button id="close-req-pass-btn" class="btn btn-secondary">Pass (confirm close)</button>
+        <p style="margin-top:0.6rem; font-size:0.85rem; opacity:0.85;">
+          Responded: <span id="close-req-responded">0</span> / <span id="close-req-needed">0</span>
+        </p>
+      </div>
+
+      <!-- Banner shown to BIDDER while waiting for responses -->
+      <div id="close-waiting-banner" class="close-request-banner" style="display:none; background: rgba(255,215,0,0.12); border-color: gold;">
+        <p>⏳ Waiting for other players to respond to your close request...</p>
+        <p style="font-size:0.85rem; opacity:0.85;">
+          Responses: <span id="close-wait-responded">0</span> / <span id="close-wait-needed">0</span>
+        </p>
       </div>
 
       <div class="current-bids">
@@ -184,14 +207,27 @@
   <div id="play-screen" class="screen">
     <div class="game-container">
 
-      <!-- Top Section: Game Info -->
+      <!-- Top Section: Game Info + Bidder/Partner info all in ONE compact bar -->
       <div class="game-header-bar">
         <div class="game-info">
           <span class="round-badge">Round <span id="current-round">1</span></span>
           <span class="trump-badge">Trump: <span id="trump-display">-</span></span>
+          <!-- Bidder + bid + picked cards inline -->
+          <span id="header-bidder-info" class="header-bidder-info" style="display:none">
+            <span class="partner-info-label">Bidder:</span>
+            <span id="partner-info-bidder">-</span>
+            <span class="partner-info-label">Bid:</span>
+            <span id="partner-info-bid">-</span>
+            <span id="partner-info-cards" class="header-cards"></span>
+          </span>
         </div>
-        <div id="score-display" class="score-display"></div>
+        <div class="header-right">
+          <span id="partner-info-status" class="partner-info-status"></span>
+          <span id="score-display" class="score-display"></span>
+        </div>
       </div>
+
+      <!-- (Removed: separate partner-info-panel — merged into header above) -->
 
       <!-- Teams display -->
       <div id="teams-display" class="teams-display"></div>
@@ -264,6 +300,38 @@
       <div class="result-actions">
         <button id="next-round-btn" class="btn btn-primary">Next Round</button>
         <button id="exit-game-btn" class="btn btn-secondary">Exit Game</button>
+      </div>
+      <p id="waiting-for-host-msg" style="text-align: center; margin-top: 0.75rem; color: #aaa; display: none;">
+        Waiting for the host to start the next round...
+      </p>
+    </div>
+  </div>
+
+  <!-- NEW: GAME OVER SCREEN -->
+  <div id="game_over-screen" class="screen">
+    <div class="round-result-container" style="text-align: center;">
+      <h1 style="font-size: 3rem; color: gold; margin-bottom: 0.5rem;">🏆 Game Over 🏆</h1>
+      <p id="game-over-reason" class="result-subtitle">A player reached the target score!</p>
+
+      <div class="team-result" style="background: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,215,0,0.05)); padding: 2rem; border-radius: 12px; border: 2px solid gold; margin-top: 1rem;">
+        <h2 style="color: gold;">Winner<span id="winner-plural"></span></h2>
+        <div id="game-over-winners" style="font-size: 1.6rem; font-weight: bold; margin: 1rem 0;"></div>
+        <p>Final score: <span id="game-over-winning-score" style="font-size: 1.3rem; font-weight: bold; color: gold;">0</span></p>
+      </div>
+
+      <div class="overall-standings" style="margin-top: 1.5rem;">
+        <h3>Final Standings</h3>
+        <div id="game-over-standings" class="standings-list"></div>
+      </div>
+
+      <div class="result-actions" style="margin-top: 1.5rem;">
+        <button id="game-over-back-to-lobby-btn" class="btn btn-primary" style="display:none">
+          Back to Lobby
+        </button>
+        <p id="game-over-wait-msg" style="display:none; color: var(--text-light); opacity: 0.85;">
+          Waiting for host to return to lobby...
+        </p>
+        <button id="game-over-leave-btn" class="btn btn-secondary">Leave Room</button>
       </div>
     </div>
   </div>

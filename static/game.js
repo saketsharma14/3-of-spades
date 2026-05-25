@@ -119,10 +119,19 @@ socket.on("private_update", (state) => {
       });
     }
   }
+  // NEW: keep the partner panel in sync the moment our "am I teammate" flag changes
+  if (publicState.phase === "playing" || publicState.phase === "trump") {
+    renderPartnerInfoPanel(publicState);
+  }
 });
 
 socket.on("round_end", (result) => {
   renderRoundResult(result);
+});
+
+// NEW: server emits this when target reached or vote passed
+socket.on("game_over", (data) => {
+  renderGameOver(data);
 });
 
 // ─── RENDER: ROUTE BY PHASE ──────────────────────────────────────────────────
@@ -150,6 +159,14 @@ function renderPublicState(state) {
       // renderRoundResult is called from the round_end socket event,
       // but if state_update arrives first (e.g. on reconnect) render from publicState
       showScreen("round_result-screen");
+      // Gate Next Round to host even when renderRoundResult isn't called
+      {
+        const isHost     = state.owner === myName;
+        const nextBtn    = document.getElementById("next-round-btn");
+        const waitingMsg = document.getElementById("waiting-for-host-msg");
+        if (nextBtn)    nextBtn.style.display    = isHost ? "" : "none";
+        if (waitingMsg) waitingMsg.style.display = isHost ? "none" : "block";
+      }
       if (state.team1 && state.team1.length > 0) {
         renderRoundResult({
           team1:        state.team1,
@@ -162,6 +179,14 @@ function renderPublicState(state) {
           scores:       state.scores
         });
       }
+      break;
+    case "game_over":
+      // Reconnect or refresh after game ended → still route to game-over.
+      renderGameOver({
+        winners:    state.winners,
+        scores:     state.scores,
+        end_reason: state.end_reason,
+      });
       break;
   }
 }
@@ -232,18 +257,56 @@ function renderBidding(state) {
     if (bidInput) bidInput.value = currentBidAmount;
   }
 
-  // Close bidding button — only for highest bidder
-  const closeBtn = document.getElementById("close-bidding-btn");
-  if (closeBtn) {
-    closeBtn.style.display =
-      myName === state.highest_bidder && !state.bidding_closed ? "block" : "none";
+  // NEW: Close-bidding now uses a "request" pattern
+  const reqCloseBtn      = document.getElementById("request-close-btn");
+  const closeReqBanner   = document.getElementById("close-request-banner");
+  const closeWaitBanner  = document.getElementById("close-waiting-banner");
+  const isHighestBidder  = myName === state.highest_bidder;
+  const requestActive    = !!state.close_request_active;
+  const alreadyPassed    = (state.has_passed || []).includes(myName);
+
+  // Show "Request to Close" button to the bidder ONLY when no request is active.
+  if (reqCloseBtn) {
+    reqCloseBtn.style.display = (isHighestBidder && !requestActive && !state.bidding_closed) ? "block" : "none";
+  }
+
+  // When a request is active:
+  //   - non-bidder players see the "respond" banner (unless they already passed)
+  //   - the bidder sees a "waiting for responses" banner
+  if (closeReqBanner) {
+    if (requestActive && !isHighestBidder && !alreadyPassed) {
+      closeReqBanner.style.display = "block";
+      document.getElementById("close-req-bidder").textContent = state.highest_bidder;
+      document.getElementById("close-req-amount").textContent = state.highest_bid;
+      // active responders = players who haven't passed (excluding bidder)
+      const activeCount = state.players.filter(p =>
+        p !== state.highest_bidder && !(state.has_passed || []).includes(p)
+      ).length;
+      const respondedCount = (state.close_request_responses || []).length;
+      document.getElementById("close-req-responded").textContent = respondedCount;
+      document.getElementById("close-req-needed").textContent    = activeCount;
+    } else {
+      closeReqBanner.style.display = "none";
+    }
+  }
+  if (closeWaitBanner) {
+    if (requestActive && isHighestBidder) {
+      closeWaitBanner.style.display = "block";
+      const activeCount = state.players.filter(p =>
+        p !== state.highest_bidder && !(state.has_passed || []).includes(p)
+      ).length;
+      // active count fluctuates as players pass during the request
+      const respondedCount = (state.close_request_responses || []).length;
+      document.getElementById("close-wait-responded").textContent = respondedCount;
+      document.getElementById("close-wait-needed").textContent    = activeCount + respondedCount;
+    } else {
+      closeWaitBanner.style.display = "none";
+    }
   }
 
   // Hide Pass button for highest bidder or players who already passed
   const passBtn = document.getElementById("pass-bid-btn");
   if (passBtn) {
-    const alreadyPassed   = (state.has_passed || []).includes(myName);
-    const isHighestBidder = myName === state.highest_bidder;
     passBtn.style.display = (isHighestBidder || alreadyPassed) ? "none" : "inline-block";
   }
 
@@ -378,7 +441,60 @@ function renderGameplay(state) {
   const teamsEl = document.getElementById("teams-display");
   if (teamsEl) teamsEl.innerHTML = "";
 
+  // NEW: Partner info panel — shows bidder + chosen cards + your team status
+  renderPartnerInfoPanel(state);
+
   renderCircularTable(state);
+}
+
+// NEW: Renders the small panel near the top of the play screen that shows
+// the bidder, the bid amount, the cards the bidder chose, and whether THIS
+// player is on the bidder's team (mystery revealed once your card is picked).
+function renderPartnerInfoPanel(state) {
+  // The old free-floating panel was merged into the header bar to save space.
+  // Elements live inside the header now.
+  const inlineWrap = document.getElementById("header-bidder-info");
+  if (!inlineWrap) return;
+
+  if (!state.highest_bidder) {
+    inlineWrap.style.display = "none";
+    const statusEl = document.getElementById("partner-info-status");
+    if (statusEl) statusEl.textContent = "";
+    return;
+  }
+  inlineWrap.style.display = "inline-flex";
+  document.getElementById("partner-info-bidder").textContent = state.highest_bidder;
+  document.getElementById("partner-info-bid").textContent    = state.highest_bid + " pts";
+
+  // Show chosen cards as small images
+  const cardsEl = document.getElementById("partner-info-cards");
+  cardsEl.innerHTML = "";
+  (state.chosen_cards || []).forEach(card => {
+    const img = document.createElement("img");
+    img.src   = getCardImage(card.display);
+    img.alt   = card.display;
+    img.title = card.display;
+    cardsEl.appendChild(img);
+  });
+
+  // Per-player status — compact, fits in header
+  const statusEl = document.getElementById("partner-info-status");
+  if (!statusEl) return;
+  statusEl.classList.remove("teammate", "opponent");
+  if (privateState.am_i_bidder) {
+    statusEl.textContent = "🃏 You are the bidder";
+    statusEl.classList.add("teammate");
+  } else if (state.chosen_cards && state.chosen_cards.length > 0) {
+    if (privateState.is_teammate) {
+      statusEl.textContent = "🤝 Teammate";
+      statusEl.classList.add("teammate");
+    } else {
+      statusEl.textContent = "⚔ Chaser";
+      statusEl.classList.add("opponent");
+    }
+  } else {
+    statusEl.textContent = "";
+  }
 }
 
 // ─── RENDER: HAND ────────────────────────────────────────────────────────────
@@ -391,7 +507,11 @@ function renderHand(state) {
   const validSet = new Set(state.valid_cards);
   const isMyTurn = state.is_my_turn;
 
-  state.hand.forEach(card => {
+  // Sort: trump suit first, then Spades, Hearts, Clubs, Diamonds.
+  // Within each suit, higher rank first.
+  const sortedHand = sortHand(state.hand || [], publicState.trump_suit);
+
+  sortedHand.forEach(card => {
     const isValid = validSet.has(card.display);
     const btn     = document.createElement("button");
     btn.className = "card"
@@ -409,7 +529,19 @@ function renderHand(state) {
   });
 
   const infoEl = document.getElementById("valid-cards-info");
-  if (infoEl) infoEl.textContent = `Cards: ${state.hand.length}`;
+  if (infoEl) infoEl.textContent = `Cards: ${sortedHand.length}`;
+}
+
+// Sort helper used by renderHand. Trump suit always first.
+function sortHand(hand, trumpSuit) {
+  // Suit display order: trump → Spade → Heart → Club → Diamond
+  const baseOrder = { "Spade": 1, "Heart": 2, "Club": 3, "Diamond": 4 };
+  return [...hand].sort((a, b) => {
+    const ra = (a.suit === trumpSuit) ? 0 : (baseOrder[a.suit] || 99);
+    const rb = (b.suit === trumpSuit) ? 0 : (baseOrder[b.suit] || 99);
+    if (ra !== rb) return ra - rb;
+    return b.number - a.number; // higher rank first within suit
+  });
 }
 
 // ─── RENDER: TABLE ───────────────────────────────────────────────────────────
@@ -458,6 +590,13 @@ function renderCircularTable(state) {
 function renderRoundResult(result) {
   showScreen("round_result-screen");
   document.getElementById("result-round").textContent = publicState.round_number || "";
+
+  // Only the host can start the next round — hide the button for everyone else
+  const isHost          = publicState.owner === myName;
+  const nextBtn         = document.getElementById("next-round-btn");
+  const waitingMsg      = document.getElementById("waiting-for-host-msg");
+  if (nextBtn)    nextBtn.style.display    = isHost ? "" : "none";
+  if (waitingMsg) waitingMsg.style.display = isHost ? "none" : "block";
 
   // SPECIAL CASE: everyone passed during bidding — no round was played
   if (result.all_passed) {
@@ -655,10 +794,19 @@ document.getElementById("pass-bid-btn").addEventListener("click", () => {
   socket.emit("pass_bid");
 });
 
-const closeBidBtn = document.getElementById("close-bidding-btn");
-if (closeBidBtn) {
-  closeBidBtn.addEventListener("click", () => {
-    socket.emit("close_bidding");
+// NEW: bidder REQUESTS close (instead of unilaterally closing)
+const requestCloseBtn = document.getElementById("request-close-btn");
+if (requestCloseBtn) {
+  requestCloseBtn.addEventListener("click", () => {
+    socket.emit("request_close_bidding");
+  });
+}
+
+// NEW: non-bidder responds "pass" to a close request
+const closeReqPassBtn = document.getElementById("close-req-pass-btn");
+if (closeReqPassBtn) {
+  closeReqPassBtn.addEventListener("click", () => {
+    socket.emit("respond_close_request", { action: "pass" });
   });
 }
 
@@ -681,5 +829,80 @@ document.getElementById("next-round-btn").addEventListener("click", () => {
 document.getElementById("exit-game-btn").addEventListener("click", () => {
   if (confirm("Exit game?")) socket.emit("leave_room_game");
 });
+
+// ─── EVENT LISTENERS: GAME OVER ──────────────────────────────────────────────
+
+// NEW: host returns the room to the lobby (preserving players and target)
+const gameOverBackBtn = document.getElementById("game-over-back-to-lobby-btn");
+if (gameOverBackBtn) {
+  gameOverBackBtn.addEventListener("click", () => {
+    socket.emit("return_to_lobby");
+  });
+}
+// NEW: anyone can leave the room from the game-over screen
+const gameOverLeaveBtn = document.getElementById("game-over-leave-btn");
+if (gameOverLeaveBtn) {
+  gameOverLeaveBtn.addEventListener("click", () => {
+    socket.emit("leave_room_game");
+  });
+}
+
+// ─── RENDER: GAME OVER ───────────────────────────────────────────────────────
+
+function renderGameOver(data) {
+  // data: { winners: [name, ...], scores: {name: score}, end_reason: str|null }
+  showScreen("game_over-screen");
+
+  const winners = data.winners || [];
+
+  // Explanation line (e.g. "Game ended: Bob left the room")
+  const reasonEl = document.getElementById("game-over-reason");
+  if (reasonEl) {
+    if (data.end_reason) {
+      reasonEl.textContent = `Game ended: ${data.end_reason}.`;
+    } else {
+      reasonEl.textContent = "Game over.";
+    }
+  }
+
+  // Plural "Winners" if it's a tie
+  document.getElementById("winner-plural").textContent = winners.length > 1 ? "s (tie!)" : "";
+
+  // List winner name(s)
+  document.getElementById("game-over-winners").innerHTML =
+    winners.length
+      ? winners.map(w => `<div>🏆 ${escapeHtml(w)} 🏆</div>`).join("")
+      : "<div>No winner</div>";
+
+  // Winning score
+  const top = (winners.length && data.scores) ? data.scores[winners[0]] : 0;
+  document.getElementById("game-over-winning-score").textContent = top;
+
+  // Full final standings
+  const standingsEl = document.getElementById("game-over-standings");
+  if (standingsEl) {
+    standingsEl.innerHTML = "";
+    Object.entries(data.scores || {})
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([player, score], idx) => {
+        const isWinner = winners.includes(player);
+        const div     = document.createElement("div");
+        div.className = "standing-item" + (isWinner ? " top" : "");
+        div.innerHTML = `
+          <span class="standing-rank">#${idx + 1}</span>
+          <span class="standing-name">${escapeHtml(player)}${isWinner ? " 👑" : ""}</span>
+          <span class="standing-score">${score} pts</span>
+        `;
+        standingsEl.appendChild(div);
+      });
+  }
+
+  // Owner sees "Back to Lobby" button; others see waiting message
+  const isOwner = myName === publicState.owner;
+  const backBtn = document.getElementById("game-over-back-to-lobby-btn");
+  const waitMsg = document.getElementById("game-over-wait-msg");
+  if (backBtn) backBtn.style.display = isOwner ? "inline-block" : "none";
+  if (waitMsg) waitMsg.style.display = isOwner ? "none" : "block";
+}
 
 console.log("3 of Spades — game.js loaded");

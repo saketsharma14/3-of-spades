@@ -52,6 +52,7 @@ class GameState:
     PHASE_TRUMP     = "trump"
     PHASE_PLAYING   = "playing"
     PHASE_ROUND_END = "round_end"
+    PHASE_GAME_OVER = "game_over"   # NEW
 
     def __init__(self, room_code, owner_name, owner_sid):
         self.room_code      = room_code
@@ -85,6 +86,16 @@ class GameState:
         self.scores         = {owner_name: 0}
         self.round_number   = 0
 
+        # Game-over tracking (used when a player leaves and forces a stop)
+        self.game_over      = False
+        self.winners        = []   # list (1+ names if tie)
+
+        # NEW: close-bidding request system (anti-exploit)
+        # When the bidder requests close, other active bidders must each
+        # confirm (pass or counter-bid) before the auction actually closes.
+        self.close_request_active = False
+        self.close_request_responses = set()   # players who have responded
+
         self.phase          = self.PHASE_LOBBY
 
     # ── lobby ────────────────────────────────────────────────────────────────
@@ -116,21 +127,76 @@ class GameState:
                 self.owner = self.players[0]
             return name
 
+        # NEW: if someone leaves mid-game, the game can't continue (player
+        # counts of 5 or 7 break the deal). End the game gracefully — remaining
+        # players are routed to the game-over screen with current standings.
+        # Exception: if we're already in game_over, just clean up.
+        if self.phase != self.PHASE_GAME_OVER:
+            if name in self.players:
+                self.players.remove(name)
+            self.hands.pop(name, None)
+            self.scores.pop(name, None)
+            if name == self.owner and self.players:
+                self.owner = self.players[0]
+            self.end_reason = f"{name} left the room"
+            self._finalize_game()
+            return name
+
         if name in self.players:
             self.players.remove(name)
-        self.hands.pop(name, None)   # clean up disconnected player's hand
+        self.hands.pop(name, None)
         self.scores.pop(name, None)
-
-        if self.phase == self.PHASE_PLAYING and self.whose_turn() is None:
-            self._resolve_trick()
-
         if name == self.owner and self.players:
             self.owner = self.players[0]
-
         return name
 
     def can_start(self):
         return len(self.players) in (6, 8)
+
+    def _finalize_game(self):
+        """Pick the winner(s) and switch to game_over phase."""
+        if not self.scores:
+            self.winners = []
+        else:
+            top = max(self.scores.values())
+            self.winners = [p for p, s in self.scores.items() if s == top]
+        self.game_over = True
+        self.phase     = self.PHASE_GAME_OVER
+
+    def reset_to_lobby(self, requester):
+        """Host returns to lobby after a game ends; preserves players and target."""
+        if requester != self.owner:
+            return False, "Only the room owner can return to lobby."
+        if self.phase != self.PHASE_GAME_OVER:
+            return False, "Game is not over yet."
+        # Wipe round/game state but keep players
+        self.player_count   = 0
+        self.hands          = {}
+        self.highest_bid    = 0
+        self.highest_bidder = None
+        self.has_bid        = set()
+        self.has_passed     = set()
+        self.bidding_closed = False
+        self.all_passed_round = False
+        self.chosen_cards   = []
+        self.team1          = []
+        self.team2          = []
+        self.trump_suit     = None
+        self.current_trick  = []
+        self.led_suit       = None
+        self.current_leader = None
+        self.trick_number   = 0
+        self.total_tricks   = 0
+        self.team1_points   = 0
+        self.team2_points   = 0
+        self.scores         = {p: 0 for p in self.players}
+        self.round_number   = 0
+        self.game_over      = False
+        self.winners        = []
+        self.close_request_active   = False
+        self.close_request_responses = set()
+        self.phase          = self.PHASE_LOBBY
+        return True, None
 
     def is_empty(self):
         return len(self.players) == 0
@@ -180,6 +246,9 @@ class GameState:
         self.has_bid.add(name)
         # If they previously passed, un-pass them since they're bidding again
         self.has_passed.discard(name)
+        # NEW: any active close request is cancelled by a counter-bid
+        self.close_request_active    = False
+        self.close_request_responses = set()
         if amount == 250:
             self.bidding_closed = True
             self._finalize_bid()
@@ -208,10 +277,71 @@ class GameState:
         return True, None
 
     def close_bidding(self):
+        """OLD direct close — kept for emergency. Use request_close_bidding instead."""
         if not self.highest_bidder:
             return False, "No one has bid yet."
         self.bidding_closed = True
         self._finalize_bid()
+        return True, None
+
+    # NEW: request-based close to prevent the bidder from unilaterally
+    # closing the auction at a low price.
+    def request_close_bidding(self, name):
+        """
+        Bidder asks to close. All other active (non-passed) players must
+        respond by passing or counter-bidding. If anyone counter-bids, the
+        request is cancelled. If everyone passes, the auction closes.
+        """
+        if self.phase != self.PHASE_BIDDING:
+            return False, "Not in bidding phase."
+        if name != self.highest_bidder:
+            return False, "Only the highest bidder can request to close."
+        if self.close_request_active:
+            return False, "A close request is already active."
+
+        # Pre-compute "active responders" = everyone except the bidder and
+        # anyone who already passed. If there are no active responders, just
+        # close immediately — there's no one to ask.
+        active = [
+            p for p in self.players
+            if p != self.highest_bidder and p not in self.has_passed
+        ]
+        if not active:
+            self.bidding_closed = True
+            self._finalize_bid()
+            return True, None
+
+        self.close_request_active    = True
+        self.close_request_responses = set()
+        return True, None
+
+    def respond_to_close_request(self, name, action):
+        """
+        action: "pass" or "stay" (stay = "I haven't bid yet but I won't pass
+        either"). Counter-bids go through place_bid which cancels the request.
+        """
+        if not self.close_request_active:
+            return False, "No close request is active."
+        if name == self.highest_bidder:
+            return False, "The bidder doesn't respond to their own request."
+        if name in self.has_passed:
+            return False, "You already passed earlier — no response needed."
+
+        if action == "pass":
+            self.has_passed.add(name)
+            self.close_request_responses.add(name)
+        else:
+            return False, f"Unknown action '{action}'."
+
+        # If every non-passed, non-bidder player has now passed → close.
+        remaining = [
+            p for p in self.players
+            if p != self.highest_bidder and p not in self.has_passed
+        ]
+        if not remaining:
+            self.bidding_closed       = True
+            self.close_request_active = False
+            self._finalize_bid()
         return True, None
 
     def _finalize_bid(self):
@@ -421,18 +551,45 @@ class GameState:
             "chosen_cards":     [c.to_dict() for c in self.chosen_cards],
             "teammates_needed": self.teammates_needed() if self.phase == self.PHASE_PICK_TEAM else 0,
             "bidding_closed":   self.bidding_closed,
+            # Game-ending and close-bidding state
+            "game_over":        self.game_over,
+            "winners":          self.winners,
+            "end_reason":       getattr(self, "end_reason", None),
+            "close_request_active":    self.close_request_active,
+            "close_request_responses": list(self.close_request_responses),
         }
 
     def private_state(self, name):
         if name not in self.hands:
-            return {"hand": [], "valid_cards": [], "is_my_turn": False, "in_team1": False}
+            return {"hand": [], "valid_cards": [], "is_my_turn": False, "in_team1": False, "is_teammate": False, "am_i_bidder": False}
         hand  = self.hands[name]
         valid = self.get_valid_cards(name) if self.phase == self.PHASE_PLAYING else hand
+
+        # Live "am I a teammate of the bidder?" check.
+        # IMPORTANT: once teams are finalized (phase >= trump), use the
+        # stable team1 list. If we re-derived this from chosen_cards every
+        # time, a teammate who PLAYS one of their chosen cards would suddenly
+        # appear as a chaser, because the card is no longer in their hand.
+        am_i_bidder = (name == self.highest_bidder)
+        is_teammate = False
+        if am_i_bidder:
+            is_teammate = True
+        elif self.team1:
+            # Teams are finalized — use the canonical list.
+            is_teammate = name in self.team1
+        elif self.chosen_cards:
+            # Still in pick_team phase — derive from chosen_cards (best we can do).
+            hand_set = {str(c) for c in hand}
+            is_teammate = any(str(c) in hand_set for c in self.chosen_cards)
+
         return {
-            "hand":        [c.to_dict() for c in hand],
-            "valid_cards": [str(c) for c in valid],
-            "is_my_turn":  self.whose_turn() == name,
-            "in_team1":    name in self.team1,
+            "hand":         [c.to_dict() for c in hand],
+            "valid_cards":  [str(c) for c in valid],
+            "is_my_turn":   self.whose_turn() == name,
+            "in_team1":     name in self.team1,
+            # NEW: per-player visibility during pick_team / trump / playing
+            "is_teammate":  is_teammate,
+            "am_i_bidder":  am_i_bidder,
         }
 
 

@@ -46,6 +46,13 @@ def on_disconnect():
         leave_room(room.room_code)
         socketio.emit("player_left", {"name": name, "new_owner": room.owner}, to=room.room_code)
         if not room.is_empty():
+            # NEW: if the disconnect ended the game, emit game_over too
+            if room.game_over:
+                socketio.emit("game_over", {
+                    "winners":    room.winners,
+                    "scores":     room.scores,
+                    "end_reason": getattr(room, "end_reason", None),
+                }, to=room.room_code)
             broadcast_state(room)
     print(f"Disconnected: {request.sid}")
 
@@ -101,6 +108,13 @@ def on_leave_room():
         leave_room(room.room_code)
         socketio.emit("player_left", {"name": name, "new_owner": room.owner}, to=room.room_code)
         if not room.is_empty():
+            # NEW: if the leave ended the game, emit game_over too
+            if room.game_over:
+                socketio.emit("game_over", {
+                    "winners":    room.winners,
+                    "scores":     room.scores,
+                    "end_reason": getattr(room, "end_reason", None),
+                }, to=room.room_code)
             broadcast_state(room)
     emit("left_room", {})
 
@@ -157,13 +171,39 @@ def on_pass():
 
 @socketio.on("close_bidding")
 def on_close_bidding():
+    """LEGACY: kept for compat. New flow uses request_close_bidding."""
     room = get_room_or_error()
     if not room:
         return
     name = room.sid_to_name.get(request.sid)
     if name != room.highest_bidder:
         return emit_error("Only the highest bidder can close bidding.")
-    success, error = room.close_bidding()
+    success, error = room.request_close_bidding(name)
+    if not success:
+        return emit_error(error)
+    broadcast_state(room)
+
+# NEW: bidder requests close; everyone else gets a prompt
+@socketio.on("request_close_bidding")
+def on_request_close():
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    success, error = room.request_close_bidding(name)
+    if not success:
+        return emit_error(error)
+    broadcast_state(room)
+
+# NEW: a player responds to the close request by passing
+@socketio.on("respond_close_request")
+def on_respond_close(data):
+    """data: { action: 'pass' }   — counter-bids go through place_bid"""
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    success, error = room.respond_to_close_request(name, data.get("action", "pass"))
     if not success:
         return emit_error(error)
     broadcast_state(room)
@@ -214,6 +254,13 @@ def on_play_card(data):
         return emit_error(error)
     if room.phase == GameState.PHASE_ROUND_END:
         socketio.emit("round_end", room.round_result(), to=room.room_code)
+    # If that round ended the game (e.g. player left), emit game_over
+    if room.game_over:
+        socketio.emit("game_over", {
+            "winners":    room.winners,
+            "scores":     room.scores,
+            "end_reason": getattr(room, "end_reason", None),
+        }, to=room.room_code)
     broadcast_state(room)
 
 # ─── NEXT ROUND ──────────────────────────────────────────────────────────────
@@ -223,9 +270,30 @@ def on_next_round():
     room = get_room_or_error()
     if not room:
         return
+    name = room.sid_to_name.get(request.sid)
+    if name != room.owner:
+        return emit_error("Only the host can start the next round.")
     if room.phase != GameState.PHASE_ROUND_END:
         return emit_error("Round is not over yet.")
+    if room.game_over:
+        return emit_error("The game is over.")
+    # Extra safety — refuse if player count isn't 6 or 8 anymore
+    if not room.can_start():
+        return emit_error("Can't continue: need 6 or 8 players.")
     room.start_round()
+    broadcast_state(room)
+
+# ─── RETURN TO LOBBY (host only, after game over) ────────────────────────────
+
+@socketio.on("return_to_lobby")
+def on_return_to_lobby():
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    success, error = room.reset_to_lobby(name)
+    if not success:
+        return emit_error(error)
     broadcast_state(room)
 
 # ─── RUN ─────────────────────────────────────────────────────────────────────
