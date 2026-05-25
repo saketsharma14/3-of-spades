@@ -207,6 +207,13 @@ def on_play_card(data):
         return emit_error(error)
     if room.phase == GameState.PHASE_ROUND_END:
         socketio.emit("round_end", room.round_result(), to=room.room_code)
+    # NEW: If that round ended the game (someone hit target), tell clients.
+    if room.game_over:
+        socketio.emit("game_over", {
+            "winners":    room.winners,
+            "scores":     room.scores,
+            "end_reason": getattr(room, "end_reason", "target"),
+        }, to=room.room_code)
     broadcast_state(room)
 
 # ─── NEXT ROUND ──────────────────────────────────────────────────────────────
@@ -218,7 +225,61 @@ def on_next_round():
         return
     if room.phase != GameState.PHASE_ROUND_END:
         return emit_error("Round is not over yet.")
+    if room.game_over:
+        return emit_error("The game is over.")
     room.start_round()
+    broadcast_state(room)
+
+# ─── NEW: TARGET SCORE (host sets in lobby) ──────────────────────────────────
+
+@socketio.on("set_target_score")
+def on_set_target(data):
+    """data: { amount: int }   — 0 to disable target / play freely."""
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    amount = data.get("amount", 0)
+    success, error = room.set_target_score(name, amount)
+    if not success:
+        return emit_error(error)
+    broadcast_state(room)
+
+# ─── NEW: VOTE TO END THE GAME (any player) ──────────────────────────────────
+
+@socketio.on("vote_end_game")
+def on_vote_end_game():
+    """Toggle this player's vote to end the game now."""
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    success, error = room.vote_end_game(name)
+    if not success:
+        return emit_error(error)
+    # If the vote tipped the game over, broadcast a special event so the UI
+    # can pop the game-over screen immediately.
+    if room.game_over:
+        socketio.emit("game_over", {
+            "winners":    room.winners,
+            "scores":     room.scores,
+            "end_reason": getattr(room, "end_reason", "vote"),
+        }, to=room.room_code)
+    broadcast_state(room)
+
+# ─── NEW: RETURN TO LOBBY (after game ends) ──────────────────────────────────
+
+@socketio.on("return_to_lobby")
+def on_return_to_lobby():
+    """Owner clicks 'Back to Lobby' on game-over screen. Resets scores so the
+    host can change the target and start a new game with the same players."""
+    room = get_room_or_error()
+    if not room:
+        return
+    name = room.sid_to_name.get(request.sid)
+    success, error = room.reset_to_lobby(name)
+    if not success:
+        return emit_error(error)
     broadcast_state(room)
 
 # ─── RUN ─────────────────────────────────────────────────────────────────────
