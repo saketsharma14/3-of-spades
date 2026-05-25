@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 4: GAME LOGIC
+   3 OF SPADES - STEP 5: GAME LOGIC
    ======================================== */
 
 // Game state
@@ -9,10 +9,20 @@ let gameState = {
   players: [],
   currentBid: 60,
   allBids: {},
+  selectedCards: [],
+  selectedTrump: null,
 };
 
 // Mock player data
 const mockPlayers = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
+
+// All cards in deck (48 cards - 2s removed)
+const allCards = [
+  '3♠', '4♠', '5♠', '6♠', '7♠', '8♠', '9♠', '10♠', 'J♠', 'Q♠', 'K♠', 'A♠',
+  '3♥', '4♥', '5♥', '6♥', '7♥', '8♥', '9♥', '10♥', 'J♥', 'Q♥', 'K♥', 'A♥',
+  '3♣', '4♣', '5♣', '6♣', '7♣', '8♣', '9♣', '10♣', 'J♣', 'Q♣', 'K♣', 'A♣',
+  '3♦', '4♦', '5♦', '6♦', '7♦', '8♦', '9♦', '10♦', 'J♦', 'Q♦', 'K♦', 'A♦',
+];
 
 // ---- DOM ELEMENTS ----
 const playerNameInput = document.getElementById('player-name');
@@ -31,11 +41,12 @@ const bidInput = document.getElementById('bid-input');
 const submitBidBtn = document.getElementById('submit-bid-btn');
 const passBidBtn = document.getElementById('pass-bid-btn');
 
+// Team selection screen elements
+const confirmTeamBtn = document.getElementById('confirm-team-btn');
+const trumpBtns = document.querySelectorAll('.trump-btn');
+
 // ---- SCREEN NAVIGATION ----
 
-/**
- * Show a specific screen and hide all others
- */
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');
@@ -91,31 +102,21 @@ function updateGameLobby(players) {
 
 // ---- BIDDING FUNCTIONS ----
 
-/**
- * Initialize bidding screen with mock bid data
- */
 function initializeBidding() {
-  // Reset bid
   gameState.currentBid = 60;
   bidInput.value = gameState.currentBid;
   
-  // Mock other players' bids
   gameState.allBids = {
     'Alice': 150,
-    'Bob': null,  // Passed
+    'Bob': null,
     'Charlie': 120,
-    'Diana': null, // Hasn't bid yet
+    'Diana': null,
   };
   
-  // Update bids display
   updateBidsDisplay();
-  
   console.log('Bidding initialized');
 }
 
-/**
- * Update the current bids list display
- */
 function updateBidsDisplay() {
   const bidsList = document.getElementById('bids-list');
   bidsList.innerHTML = '';
@@ -135,11 +136,126 @@ function updateBidsDisplay() {
   });
 }
 
-/**
- * Update bid display
- */
 function updateBidDisplay() {
   bidInput.value = gameState.currentBid;
+}
+
+// ---- TEAM SELECTION FUNCTIONS ----
+
+/**
+ * Initialize team selection with available cards
+ */
+function initializeTeamSelection(winningBid) {
+  // Reset selections
+  gameState.selectedCards = [];
+  gameState.selectedTrump = null;
+  
+  // Display winning bid
+  document.getElementById('winning-bid').textContent = winningBid;
+  
+  // Populate cards grid
+  renderCardSelectionGrid();
+  
+  // Reset trump buttons
+  updateTrumpDisplay();
+  updateConfirmButton();
+  
+  console.log('Team selection initialized');
+}
+
+/**
+ * Render all available cards in selection grid
+ */
+function renderCardSelectionGrid() {
+  const container = document.getElementById('cards-to-select');
+  container.innerHTML = '';
+  
+  allCards.forEach(card => {
+    const cardEl = document.createElement('button');
+    cardEl.className = 'card-selector';
+    cardEl.textContent = card;
+    cardEl.dataset.card = card;
+    
+    cardEl.addEventListener('click', () => {
+      handleCardSelection(card, cardEl);
+    });
+    
+    container.appendChild(cardEl);
+  });
+}
+
+/**
+ * Handle card selection (max 2 cards)
+ */
+function handleCardSelection(card, element) {
+  if (gameState.selectedCards.includes(card)) {
+    // Deselect
+    gameState.selectedCards = gameState.selectedCards.filter(c => c !== card);
+    element.classList.remove('selected');
+  } else if (gameState.selectedCards.length < 2) {
+    // Select (max 2)
+    gameState.selectedCards.push(card);
+    element.classList.add('selected');
+  }
+  
+  updateCardsDisplay();
+  updateConfirmButton();
+}
+
+/**
+ * Update cards selected info
+ */
+function updateCardsDisplay() {
+  const info = document.getElementById('cards-selected-info');
+  info.textContent = `Selected: ${gameState.selectedCards.length}/2 cards`;
+}
+
+/**
+ * Handle trump suit selection
+ */
+function handleTrumpSelection(suit, element) {
+  // Deselect all
+  document.querySelectorAll('.trump-btn').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  
+  // Select this one
+  if (gameState.selectedTrump !== suit) {
+    gameState.selectedTrump = suit;
+    element.classList.add('selected');
+  } else {
+    gameState.selectedTrump = null;
+  }
+  
+  updateTrumpDisplay();
+  updateConfirmButton();
+}
+
+/**
+ * Update trump selection display
+ */
+function updateTrumpDisplay() {
+  const info = document.getElementById('trump-selected-info');
+  
+  if (gameState.selectedTrump) {
+    const symbols = {
+      'Spade': '♠',
+      'Heart': '♥',
+      'Club': '♣',
+      'Diamond': '♦'
+    };
+    info.textContent = `Trump: ${symbols[gameState.selectedTrump]} ${gameState.selectedTrump}`;
+  } else {
+    info.textContent = 'Trump: None selected';
+  }
+}
+
+/**
+ * Update confirm button state
+ */
+function updateConfirmButton() {
+  const canConfirm = gameState.selectedCards.length === 2 && gameState.selectedTrump;
+  confirmTeamBtn.disabled = !canConfirm;
 }
 
 // ---- EVENT LISTENERS: LOBBY ----
@@ -222,8 +338,6 @@ roomCodeInput.addEventListener('keypress', (e) => {
 
 startGameBtn.addEventListener('click', () => {
   console.log('Starting game with players:', gameState.players);
-  
-  // Initialize bidding and show bidding screen
   initializeBidding();
   showScreen('bidding-screen');
 });
@@ -242,23 +356,33 @@ bidPlusBtn.addEventListener('click', () => {
 
 submitBidBtn.addEventListener('click', () => {
   console.log('Bid submitted:', gameState.currentBid, 'by:', gameState.playerName);
-  alert(`Bid of ${gameState.currentBid} submitted!`);
-  // In next steps, will navigate to team selection
+  // Initialize team selection and show screen
+  initializeTeamSelection(gameState.currentBid);
+  showScreen('pick_team-screen');
 });
 
 passBidBtn.addEventListener('click', () => {
   console.log('Player passed:', gameState.playerName);
   gameState.allBids[gameState.playerName] = null;
   updateBidsDisplay();
-  alert('You passed the bid');
-  // In next steps, will navigate to next player or end bidding
 });
 
-// Allow Enter key in bid actions
-document.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter' && document.getElementById('bidding-screen').classList.contains('active')) {
-    submitBidBtn.click();
-  }
+// ---- EVENT LISTENERS: TEAM SELECTION ----
+
+trumpBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const suit = btn.dataset.suit;
+    handleTrumpSelection(suit, btn);
+  });
 });
 
-console.log('Game initialized - Step 4: Bidding Screen');
+confirmTeamBtn.addEventListener('click', () => {
+  console.log('Team confirmed:', {
+    cards: gameState.selectedCards,
+    trump: gameState.selectedTrump,
+  });
+  alert(`Team confirmed!\nCards: ${gameState.selectedCards.join(', ')}\nTrump: ${gameState.selectedTrump}`);
+  // In next steps, will navigate to gameplay screen
+});
+
+console.log('Game initialized - Step 5: Team Selection');

@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 4: CSS
+   3 OF SPADES - STEP 5: CSS
    ======================================== */
 
 /* ---- CSS VARIABLES ---- */
@@ -111,7 +111,8 @@ input {
   align-items: center;
 }
 
-#lobby_wait-screen.active {
+#lobby_wait-screen.active,
+#pick_team-screen.active {
   align-items: flex-start;
   padding-top: var(--space-xl);
 }
@@ -442,7 +443,7 @@ input {
 }
 
 /* ========================================
-   BIDDING SCREEN (NEW)
+   BIDDING SCREEN
    ======================================== */
 
 #bidding-screen {
@@ -573,6 +574,149 @@ input {
 .bid-item .bid-amount {
   font-weight: 700;
   color: var(--text-light);
+}
+
+/* ========================================
+   TEAM SELECTION SCREEN (NEW)
+   ======================================== */
+
+#pick_team-screen {
+  background: transparent;
+}
+
+.team-selection-container {
+  max-width: 900px;
+  width: 100%;
+  animation: fadeIn 0.5s ease;
+}
+
+.team-header {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.team-header h2 {
+  color: var(--text-light);
+  margin-bottom: var(--space-md);
+}
+
+.bid-info {
+  color: var(--accent-color);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.team-section,
+.trump-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(196, 30, 58, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.team-section h3,
+.trump-section h3 {
+  color: var(--accent-color);
+  margin-bottom: var(--space-md);
+}
+
+.team-instructions {
+  color: var(--text-light);
+  margin-bottom: var(--space-lg);
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.cards-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.card-selector {
+  aspect-ratio: 2 / 3;
+  border: 2px solid rgba(196, 30, 58, 0.3);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  text-align: center;
+  padding: var(--space-sm);
+  flex-direction: column;
+  font-weight: 700;
+}
+
+.card-selector:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-color);
+  transform: translateY(-4px);
+}
+
+.card-selector.selected {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-light);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5);
+}
+
+.cards-info {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-top: var(--space-md);
+}
+
+.trump-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.trump-btn {
+  padding: var(--space-md);
+  border: 2px solid rgba(196, 30, 58, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+  border-radius: var(--radius-lg);
+  font-weight: 700;
+  font-size: 1.1rem;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.trump-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.trump-btn.selected {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5);
+}
+
+.trump-info {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-top: var(--space-md);
+}
+
+.team-actions {
+  text-align: center;
+}
+
+.team-actions .btn {
+  min-width: 200px;
 }
 
 /* Buttons */
@@ -710,6 +854,14 @@ input {
   .bid-actions {
     grid-template-columns: 1fr;
   }
+
+  .cards-selection-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .trump-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -751,5 +903,13 @@ input {
   #bid-input {
     font-size: 2rem;
     width: 120px;
+  }
+
+  .cards-selection-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .trump-buttons {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
