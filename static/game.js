@@ -737,9 +737,7 @@ if (exitGameBtn) {
 }
 
 // ---- INITIALIZATION ----
-
-// Uncomment this line to enable Socket.IO when backend is ready
-// initializeSocket();
+initializeSocket();
 
 console.log('=================================');
 console.log('3 OF SPADES - STEP 8: FINAL VERSION');
