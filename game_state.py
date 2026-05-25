@@ -192,10 +192,10 @@ class GameState:
     def pass_bid(self, name):
         if self.phase != self.PHASE_BIDDING:
             return False, "Not in bidding phase."
-        if name in self.has_bid:
-            return False, "You have already bid or passed."
         self.has_bid.add(name)
-        if len(self.has_bid) == self.player_count:
+        # Close bidding if everyone has passed and someone has bid
+        remaining = [p for p in self.players if p not in self.has_bid]
+        if len(remaining) == 0 and self.highest_bidder:
             self.bidding_closed = True
             self._finalize_bid()
         return True, None

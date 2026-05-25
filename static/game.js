@@ -88,6 +88,14 @@ socket.on("left_room", () => {
 
 socket.on("state_update", (state) => {
   publicState = state;
+
+  // Reset bid amount at start of each new round
+  if (state.phase === "bidding" && state.trick_number === 0 && state.highest_bid === 0) {
+    currentBidAmount = 60;
+    const bidInput = document.getElementById("bid-input");
+    if (bidInput) bidInput.value = currentBidAmount;
+  }
+
   renderPublicState(state);
 });
 
@@ -203,11 +211,6 @@ function renderBidding(state) {
     });
   }
 
-  // Hide bid controls once player has bid or passed
-  const hasBid      = state.has_bid.includes(myName);
-  const bidControls = document.getElementById("bid-controls");
-  if (bidControls) bidControls.style.display = hasBid ? "none" : "flex";
-
   // Close bidding button — only for highest bidder
   const closeBtn = document.getElementById("close-bidding-btn");
   if (closeBtn) {
@@ -236,16 +239,17 @@ function renderBidding(state) {
 // ─── RENDER: PICK TEAM ───────────────────────────────────────────────────────
 
 function renderPickTeam(state) {
-  showScreen("pick_team-screen");
+  showScreen("pick_team-screen");   // ← move this to the TOP before any returns
   document.getElementById("winning-bid").textContent = state.highest_bid;
 
   const isBidder      = myName === state.highest_bidder;
   const pickerSection = document.getElementById("cards-to-select");
   const waitMsg       = document.getElementById("pick-team-wait-msg");
   const trumpSection  = document.querySelector(".trump-section");
+  const teamSection   = document.querySelector(".team-section");
 
-  // Hide trump section during pick_team phase
   if (trumpSection) trumpSection.style.display = "none";
+  if (teamSection)  teamSection.style.display  = "block";
 
   if (!isBidder) {
     if (pickerSection) pickerSection.style.display = "none";
