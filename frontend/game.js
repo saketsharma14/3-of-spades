@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 5: GAME LOGIC
+   3 OF SPADES - STEP 6: GAME LOGIC
    ======================================== */
 
 // Game state
@@ -11,6 +11,8 @@ let gameState = {
   allBids: {},
   selectedCards: [],
   selectedTrump: null,
+  playerHand: [],
+  validCards: [],
 };
 
 // Mock player data
@@ -44,6 +46,10 @@ const passBidBtn = document.getElementById('pass-bid-btn');
 // Team selection screen elements
 const confirmTeamBtn = document.getElementById('confirm-team-btn');
 const trumpBtns = document.querySelectorAll('.trump-btn');
+
+// Gameplay screen elements
+const quitGameBtn = document.getElementById('quit-game-btn');
+const playerHandContainer = document.getElementById('player-hand');
 
 // ---- SCREEN NAVIGATION ----
 
@@ -142,30 +148,19 @@ function updateBidDisplay() {
 
 // ---- TEAM SELECTION FUNCTIONS ----
 
-/**
- * Initialize team selection with available cards
- */
 function initializeTeamSelection(winningBid) {
-  // Reset selections
   gameState.selectedCards = [];
   gameState.selectedTrump = null;
   
-  // Display winning bid
   document.getElementById('winning-bid').textContent = winningBid;
   
-  // Populate cards grid
   renderCardSelectionGrid();
-  
-  // Reset trump buttons
   updateTrumpDisplay();
   updateConfirmButton();
   
   console.log('Team selection initialized');
 }
 
-/**
- * Render all available cards in selection grid
- */
 function renderCardSelectionGrid() {
   const container = document.getElementById('cards-to-select');
   container.innerHTML = '';
@@ -184,16 +179,11 @@ function renderCardSelectionGrid() {
   });
 }
 
-/**
- * Handle card selection (max 2 cards)
- */
 function handleCardSelection(card, element) {
   if (gameState.selectedCards.includes(card)) {
-    // Deselect
     gameState.selectedCards = gameState.selectedCards.filter(c => c !== card);
     element.classList.remove('selected');
   } else if (gameState.selectedCards.length < 2) {
-    // Select (max 2)
     gameState.selectedCards.push(card);
     element.classList.add('selected');
   }
@@ -202,24 +192,16 @@ function handleCardSelection(card, element) {
   updateConfirmButton();
 }
 
-/**
- * Update cards selected info
- */
 function updateCardsDisplay() {
   const info = document.getElementById('cards-selected-info');
   info.textContent = `Selected: ${gameState.selectedCards.length}/2 cards`;
 }
 
-/**
- * Handle trump suit selection
- */
 function handleTrumpSelection(suit, element) {
-  // Deselect all
   document.querySelectorAll('.trump-btn').forEach(btn => {
     btn.classList.remove('selected');
   });
   
-  // Select this one
   if (gameState.selectedTrump !== suit) {
     gameState.selectedTrump = suit;
     element.classList.add('selected');
@@ -231,9 +213,6 @@ function handleTrumpSelection(suit, element) {
   updateConfirmButton();
 }
 
-/**
- * Update trump selection display
- */
 function updateTrumpDisplay() {
   const info = document.getElementById('trump-selected-info');
   
@@ -250,12 +229,138 @@ function updateTrumpDisplay() {
   }
 }
 
-/**
- * Update confirm button state
- */
 function updateConfirmButton() {
   const canConfirm = gameState.selectedCards.length === 2 && gameState.selectedTrump;
   confirmTeamBtn.disabled = !canConfirm;
+}
+
+// ---- GAMEPLAY FUNCTIONS (NEW) ----
+
+/**
+ * Initialize gameplay screen with players and hand
+ */
+function initializeGameplay(trump) {
+  console.log('Game started with trump:', trump);
+  
+  // Update display
+  document.getElementById('trump-display').textContent = trump;
+  document.getElementById('current-round').textContent = '1';
+  
+  // Deal mock hand to player (8 random cards)
+  gameState.playerHand = [];
+  gameState.validCards = [];
+  
+  for (let i = 0; i < 8; i++) {
+    const randomCard = allCards[Math.floor(Math.random() * allCards.length)];
+    if (!gameState.playerHand.includes(randomCard)) {
+      gameState.playerHand.push(randomCard);
+    }
+  }
+  
+  // Set first few as valid
+  gameState.validCards = gameState.playerHand.slice(0, 3);
+  
+  // Render hand
+  renderPlayerHand();
+  
+  // Render circular table
+  renderCircularTable();
+  
+  console.log('Gameplay initialized');
+}
+
+/**
+ * Render player's hand at bottom
+ */
+function renderPlayerHand() {
+  playerHandContainer.innerHTML = '';
+  
+  const validCardSet = new Set(gameState.validCards);
+  
+  gameState.playerHand.forEach(card => {
+    const cardEl = document.createElement('button');
+    cardEl.className = 'card';
+    
+    if (!validCardSet.has(card)) {
+      cardEl.classList.add('invalid');
+    }
+    
+    cardEl.innerHTML = `
+      <span>${card}</span>
+      <span>10 pts</span>
+    `;
+    cardEl.dataset.card = card;
+    
+    cardEl.addEventListener('click', () => {
+      if (!cardEl.classList.contains('invalid')) {
+        playCard(card);
+      }
+    });
+    
+    playerHandContainer.appendChild(cardEl);
+  });
+  
+  // Update hand info
+  document.getElementById('valid-cards-info').textContent = 
+    `Cards: ${gameState.playerHand.length}`;
+}
+
+/**
+ * Render circular table with players around table image
+ */
+function renderCircularTable() {
+  const table = document.getElementById('game-table');
+  table.innerHTML = '';
+  
+  const playerCount = gameState.players.length;
+  const radius = 180; // Distance from center of table
+  const angleStep = (2 * Math.PI) / playerCount;
+  
+  // Get player with current turn (mock: first player)
+  const activePlayer = gameState.players[0];
+  
+  gameState.players.forEach((player, idx) => {
+    // Calculate angle - start from top and go clockwise
+    const angle = angleStep * idx - Math.PI / 2;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    
+    const position = document.createElement('div');
+    position.className = 'player-position';
+    position.dataset.player = player;
+    
+    // Position player around the center
+    position.style.left = `calc(50% + ${x}px - 40px)`;
+    position.style.top = `calc(50% + ${y}px - 50px)`;
+    
+    const cardClass = activePlayer === player ? 'player-card active' : 'player-card';
+    const isCurrent = player === gameState.playerName ? ' current-player' : '';
+    
+    position.innerHTML = `
+      <div class="${cardClass}${isCurrent}">
+        <div class="player-name">${player}</div>
+        <div class="player-score">${idx === 0 ? '1 trick' : '0 tricks'}</div>
+      </div>
+    `;
+    
+    table.appendChild(position);
+  });
+}
+
+/**
+ * Handle card play
+ */
+function playCard(card) {
+  console.log('Card played:', card, 'by:', gameState.playerName);
+  
+  // Remove from hand
+  gameState.playerHand = gameState.playerHand.filter(c => c !== card);
+  gameState.validCards = gameState.validCards.filter(c => c !== card);
+  
+  // Re-render hand
+  renderPlayerHand();
+  
+  alert(`You played ${card}!`);
 }
 
 // ---- EVENT LISTENERS: LOBBY ----
@@ -355,8 +460,7 @@ bidPlusBtn.addEventListener('click', () => {
 });
 
 submitBidBtn.addEventListener('click', () => {
-  console.log('Bid submitted:', gameState.currentBid, 'by:', gameState.playerName);
-  // Initialize team selection and show screen
+  console.log('Bid submitted:', gameState.currentBid);
   initializeTeamSelection(gameState.currentBid);
   showScreen('pick_team-screen');
 });
@@ -381,8 +485,19 @@ confirmTeamBtn.addEventListener('click', () => {
     cards: gameState.selectedCards,
     trump: gameState.selectedTrump,
   });
-  alert(`Team confirmed!\nCards: ${gameState.selectedCards.join(', ')}\nTrump: ${gameState.selectedTrump}`);
-  // In next steps, will navigate to gameplay screen
+  
+  // Initialize gameplay and show game screen
+  initializeGameplay(gameState.selectedTrump);
+  showScreen('play-screen');
 });
 
-console.log('Game initialized - Step 5: Team Selection');
+// ---- EVENT LISTENERS: GAMEPLAY ----
+
+quitGameBtn.addEventListener('click', () => {
+  if (confirm('Are you sure you want to quit?')) {
+    gameState.playerHand = [];
+    showScreen('lobby-screen');
+  }
+});
+
+console.log('Game initialized - Step 6: Gameplay Screen');

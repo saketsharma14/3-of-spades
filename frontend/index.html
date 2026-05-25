@@ -15,8 +15,8 @@
         <!-- Game Title -->
         <div class="game-header">
           <h1 class="game-title">3 of Spades</h1>
-          <div class="spade-icon">♠</div>
-          <p class="game-subtitle">A Multiplayer Card Game</p>
+          <div class="spade-icon" style="color: black;">♠</div>
+          <p class="game-subtitle">3 of spades</p>
         </div>
 
         <!-- How to Play Preview -->
@@ -106,7 +106,6 @@
       <div class="players-list">
         <h3>Players Joined</h3>
         <div id="players-joined" class="players-grid">
-          <!-- Players will be populated by JavaScript -->
         </div>
       </div>
 
@@ -153,13 +152,12 @@
       <div class="current-bids">
         <h3>Current Bids</h3>
         <div id="bids-list" class="bids-list">
-          <!-- Current bids will be populated by JavaScript -->
         </div>
       </div>
     </div>
   </div>
 
-  <!-- TEAM SELECTION SCREEN (NEW) -->
+  <!-- TEAM SELECTION SCREEN -->
   <div id="pick_team-screen" class="screen">
     <div class="team-selection-container">
       <div class="team-header">
@@ -171,7 +169,6 @@
         <h3>Pick Your Teammates</h3>
         <p class="team-instructions">Select 2 cards from the deck. Players holding these cards are your teammates.</p>
         <div id="cards-to-select" class="cards-selection-grid">
-          <!-- Cards will be populated by JavaScript -->
         </div>
         <p id="cards-selected-info" class="cards-info">Selected: 0/2 cards</p>
       </div>
@@ -189,6 +186,41 @@
 
       <div class="team-actions">
         <button id="confirm-team-btn" class="btn btn-primary" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMEPLAY SCREEN (NEW) -->
+  <div id="play-screen" class="screen">
+    <div class="game-container">
+      <!-- Top Section: Game Info -->
+      <div class="game-header-bar">
+        <div class="game-info">
+          <span class="round-badge">Round <span id="current-round">1</span></span>
+          <span class="trump-badge">Trump: <span id="trump-display">-</span></span>
+        </div>
+        <div class="game-controls">
+          <button id="quit-game-btn" class="btn-icon">⚙️</button>
+        </div>
+      </div>
+
+      <!-- Middle Section: Table with Players -->
+      <div class="game-table-section">
+        <div id="game-table" class="game-table">
+          <!-- Circular table image (table.png) appears as background -->
+          <!-- Player positions will be rendered around it by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Bottom Section: Player's Hand -->
+      <div class="player-hand-section">
+        <div class="hand-info">
+          <h3>Your Hand</h3>
+          <p id="valid-cards-info" class="valid-cards-info">Cards: 0</p>
+        </div>
+        <div id="player-hand" class="player-hand">
+          <!-- Player cards will be populated by JavaScript -->
+        </div>
       </div>
     </div>
   </div>
