@@ -94,6 +94,23 @@ socket.on("state_update", (state) => {
 socket.on("private_update", (state) => {
   privateState = state;
   renderHand(state);
+  if (publicState.phase === "bidding" || publicState.phase === "pick_team") {
+    const refId = publicState.phase === "bidding"
+      ? "bidding-hand-reference"
+      : "bidder-hand-reference";
+    const handRef = document.getElementById(refId);
+    if (handRef && state.hand) {
+      handRef.innerHTML = "<h4>Your Hand:</h4>";
+      state.hand.forEach(card => {
+        const img     = document.createElement("img");
+        img.src       = getCardImage(card.display);
+        img.alt       = card.display;
+        img.className = "card-img";
+        img.title     = card.display;
+        handRef.appendChild(img);
+      });
+    }
+  }
 });
 
 socket.on("round_end", (result) => {
@@ -172,6 +189,19 @@ function renderLobbyWait(state) {
 
 function renderBidding(state) {
   document.getElementById("round-number").textContent = state.round_number;
+
+  const handRef = document.getElementById("bidding-hand-reference");
+  if (handRef && privateState.hand) {
+    handRef.innerHTML = "<h4>Your Hand:</h4>";
+    privateState.hand.forEach(card => {
+      const img     = document.createElement("img");
+      img.src       = getCardImage(card.display);
+      img.alt       = card.display;
+      img.className = "card-img";
+      img.title     = card.display;
+      handRef.appendChild(img);
+    });
+  }
 
   // Hide bid controls once player has bid or passed
   const hasBid      = state.has_bid.includes(myName);
