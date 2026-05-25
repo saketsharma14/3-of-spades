@@ -3,8 +3,7 @@ services:
     name: three-of-spades
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python server.py
+    startCommand: gunicorn --worker-class eventlet -w 1 server:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
- 
