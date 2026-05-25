@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen active">
     <div class="lobby-container">
       <div class="lobby-content">
@@ -34,6 +35,7 @@
           </div>
         </div>
 
+        <!-- Join Game Form -->
         <div class="join-form">
           <div class="form-group">
             <label for="player-name">Enter Your Name</label>
@@ -55,6 +57,46 @@
     </div>
   </div>
 
+  <!-- ROOM SELECTION SCREEN -->
+  <div id="room_select-screen" class="screen">
+    <div class="room-select-container">
+      <div class="room-header">
+        <button id="back-to-lobby" class="btn-back">← Back</button>
+        <h2>Select a Room</h2>
+      </div>
+
+      <div id="rooms-list" class="rooms-list">
+        <!-- Rooms will be populated by JavaScript -->
+        <div class="room-card">
+          <h4>ROOM1</h4>
+          <p>Players: 3/6</p>
+          <p>Status: waiting</p>
+        </div>
+        <div class="room-card">
+          <h4>ROOM2</h4>
+          <p>Players: 5/6</p>
+          <p>Status: waiting</p>
+        </div>
+        <div class="room-card">
+          <h4>ROOM3</h4>
+          <p>Players: 2/6</p>
+          <p>Status: waiting</p>
+        </div>
+      </div>
+
+      <div class="room-actions">
+        <input 
+          type="text" 
+          id="room-code-input"
+          placeholder="Or enter room code..."
+          maxlength="6"
+        >
+        <button id="join-with-code-btn" class="btn btn-primary">Join Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
   <script src="game.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 1: BASIC STYLESHEET
+   3 OF SPADES - STEP 2: CSS
    ======================================== */
 
 /* ---- CSS VARIABLES ---- */
@@ -56,6 +56,11 @@ h1, h2, h3 {
 h1 {
   font-size: 3.5rem;
   line-height: 1;
+}
+
+h2 {
+  font-size: 2.5rem;
+  line-height: 1.2;
 }
 
 h3 {
@@ -245,6 +250,93 @@ input {
   gap: var(--space-md);
 }
 
+/* ========================================
+   ROOM SELECTION SCREEN
+   ======================================== */
+
+#room_select-screen {
+  justify-content: center;
+  align-items: flex-start;
+  background: transparent;
+  padding-top: var(--space-xl);
+}
+
+.room-select-container {
+  max-width: 800px;
+  width: 100%;
+  animation: fadeIn 0.5s ease;
+}
+
+.room-header {
+  margin-bottom: var(--space-xl);
+}
+
+.room-header h2 {
+  color: var(--text-light);
+  margin-top: var(--space-md);
+}
+
+.rooms-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.room-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(196, 30, 58, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition);
+  backdrop-filter: blur(10px);
+}
+
+.room-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(196, 30, 58, 0.2);
+}
+
+.room-card h4 {
+  color: var(--accent-color);
+  margin-bottom: var(--space-sm);
+}
+
+.room-card p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-sm);
+}
+
+.room-actions {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.room-actions input {
+  flex: 1;
+  padding: var(--space-md);
+  border: 1px solid rgba(196, 30, 58, 0.5);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+  font-size: 1rem;
+}
+
+.room-actions input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.room-actions input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 12px rgba(196, 30, 58, 0.3);
+}
+
 /* Buttons */
 .btn {
   padding: var(--space-md) var(--space-lg);
@@ -282,6 +374,23 @@ input {
   transform: translateY(-2px);
 }
 
+.btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* ========================================
    ANIMATIONS
    ======================================== */
@@ -308,6 +417,15 @@ input {
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ========================================
    RESPONSIVE DESIGN
    ======================================== */
@@ -320,11 +438,23 @@ input {
   .form-buttons {
     grid-template-columns: 1fr;
   }
+
+  .rooms-list {
+    grid-template-columns: 1fr;
+  }
+
+  .room-actions {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 480px) {
   h1 {
     font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 2rem;
   }
 
   .game-subtitle {
@@ -333,5 +463,10 @@ input {
 
   .how-to-item p {
     font-size: 0.85rem;
+  }
+
+  .btn {
+    padding: var(--space-md);
+    font-size: 0.9rem;
   }
 }
