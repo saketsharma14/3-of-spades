@@ -15,8 +15,8 @@
         <!-- Game Title -->
         <div class="game-header">
           <h1 class="game-title">3 of Spades</h1>
-          <div class="spade-icon" style="color: black;">♠</div>
-          <p class="game-subtitle">3 of spades</p>
+          <div class="spade-icon">♠</div>
+          <p class="game-subtitle">A Multiplayer Card Game</p>
         </div>
 
         <!-- How to Play Preview -->
@@ -190,7 +190,7 @@
     </div>
   </div>
 
-  <!-- GAMEPLAY SCREEN (NEW) -->
+  <!-- GAMEPLAY SCREEN -->
   <div id="play-screen" class="screen">
     <div class="game-container">
       <!-- Top Section: Game Info -->
@@ -221,6 +221,64 @@
         <div id="player-hand" class="player-hand">
           <!-- Player cards will be populated by JavaScript -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROUND RESULT SCREEN (NEW) -->
+  <div id="round_result-screen" class="screen">
+    <div class="round-result-container">
+      <div class="result-header">
+        <h2>Round <span id="result-round">1</span> Complete!</h2>
+        <p class="result-subtitle">Final Scores</p>
+      </div>
+
+      <div class="teams-results">
+        <!-- Team 1 Results -->
+        <div class="team-result">
+          <h3 class="team-name">Team 1</h3>
+          <div id="team1-members" class="team-members">
+            <!-- Players will be populated by JavaScript -->
+          </div>
+          <div class="team-score">
+            <span class="score-label">Points:</span>
+            <span class="score-value" id="team1-score">120</span>
+            <span class="score-goal">/250</span>
+          </div>
+          <div id="team1-result" class="team-outcome">
+            <!-- Win/Loss message -->
+          </div>
+        </div>
+
+        <!-- Team 2 Results -->
+        <div class="team-result">
+          <h3 class="team-name">Team 2</h3>
+          <div id="team2-members" class="team-members">
+            <!-- Players will be populated by JavaScript -->
+          </div>
+          <div class="team-score">
+            <span class="score-label">Points:</span>
+            <span class="score-value" id="team2-score">130</span>
+            <span class="score-goal">/250</span>
+          </div>
+          <div id="team2-result" class="team-outcome">
+            <!-- Win/Loss message -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Overall Standings -->
+      <div class="overall-standings">
+        <h3>Overall Standings</h3>
+        <div id="standings-list" class="standings-list">
+          <!-- Player standings will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Round Actions -->
+      <div class="result-actions">
+        <button id="next-round-btn" class="btn btn-primary">Next Round</button>
+        <button id="exit-game-btn" class="btn btn-secondary">Exit Game</button>
       </div>
     </div>
   </div>

@@ -11,8 +11,12 @@ let gameState = {
   allBids: {},
   selectedCards: [],
   selectedTrump: null,
+  roundNumber: 1,
+  overallScores: {},
   playerHand: [],
   validCards: [],
+  roundNumber: 1,
+  overallScores: {},
 };
 
 // Mock player data
@@ -496,8 +500,150 @@ confirmTeamBtn.addEventListener('click', () => {
 quitGameBtn.addEventListener('click', () => {
   if (confirm('Are you sure you want to quit?')) {
     gameState.playerHand = [];
-    showScreen('lobby-screen');
+    // Initialize round results and show results screen
+    initializeRoundResults();
+    showScreen('round_result-screen');
   }
 });
 
-console.log('Game initialized - Step 6: Gameplay Screen');
+// ---- ROUND RESULTS FUNCTIONS (NEW) ----
+
+/**
+ * Initialize round results with mock data
+ */
+function initializeRoundResults() {
+  // Mock team scores for this round
+  const team1Score = Math.floor(Math.random() * 150) + 80;
+  const team2Score = 250 - team1Score;
+  
+  const team1Won = team1Score >= gameState.currentBid;
+  
+  // Update overall scores
+  if (Object.keys(gameState.overallScores).length === 0) {
+    gameState.players.forEach(player => {
+      gameState.overallScores[player] = 0;
+    });
+  }
+  
+  // Add round points (mock: distribute to team 1)
+  if (team1Won) {
+    gameState.overallScores[gameState.players[0]] += team1Score;
+    gameState.overallScores[gameState.players[1]] += team1Score;
+  } else {
+    gameState.overallScores[gameState.players[2]] += team2Score;
+    gameState.overallScores[gameState.players[3]] += team2Score;
+  }
+  
+  // Display round results
+  displayRoundResults(team1Score, team2Score, team1Won);
+  
+  console.log('Round results initialized');
+}
+
+/**
+ * Display round results on screen
+ */
+function displayRoundResults(team1Score, team2Score, team1Won) {
+  // Update round number
+  document.getElementById('result-round').textContent = gameState.roundNumber;
+  
+  // Team 1 Results
+  document.getElementById('team1-score').textContent = team1Score;
+  document.getElementById('team1-members').innerHTML = `
+    <div class="team-member-item">
+      <span class="team-member-name">${gameState.players[0]}</span> (Bid Winner)
+    </div>
+    <div class="team-member-item">
+      <span class="team-member-name">${gameState.players[1]}</span>
+    </div>
+  `;
+  
+  const team1Result = document.getElementById('team1-result');
+  if (team1Won) {
+    team1Result.className = 'team-outcome win';
+    team1Result.textContent = `✓ Won! +${team1Score} points`;
+    document.querySelectorAll('.team-result')[0].classList.add('winner');
+  } else {
+    team1Result.className = 'team-outcome loss';
+    team1Result.textContent = `✗ Failed bid`;
+  }
+  
+  // Team 2 Results
+  document.getElementById('team2-score').textContent = team2Score;
+  document.getElementById('team2-members').innerHTML = `
+    <div class="team-member-item">
+      <span class="team-member-name">${gameState.players[2]}</span>
+    </div>
+    <div class="team-member-item">
+      <span class="team-member-name">${gameState.players[3]}</span>
+    </div>
+  `;
+  
+  const team2Result = document.getElementById('team2-result');
+  if (!team1Won) {
+    team2Result.className = 'team-outcome win';
+    team2Result.textContent = `✓ Won! +${team2Score} points`;
+    document.querySelectorAll('.team-result')[1].classList.add('winner');
+  } else {
+    team2Result.className = 'team-outcome loss';
+    team2Result.textContent = `✗ Defended`;
+  }
+  
+  // Display standings
+  displayStandings();
+}
+
+/**
+ * Display overall standings
+ */
+function displayStandings() {
+  const standingsList = document.getElementById('standings-list');
+  standingsList.innerHTML = '';
+  
+  // Sort players by score
+  const sorted = Object.entries(gameState.overallScores)
+    .sort((a, b) => b[1] - a[1]);
+  
+  sorted.forEach((entry, idx) => {
+    const [player, score] = entry;
+    const standingItem = document.createElement('div');
+    standingItem.className = 'standing-item';
+    if (idx === 0) standingItem.classList.add('top');
+    
+    standingItem.innerHTML = `
+      <span class="standing-rank">#${idx + 1}</span>
+      <span class="standing-name">${player}</span>
+      <span class="standing-score">${score} pts</span>
+    `;
+    
+    standingsList.appendChild(standingItem);
+  });
+}
+
+// ---- EVENT LISTENERS: ROUND RESULTS ----
+
+const nextRoundBtn = document.getElementById('next-round-btn');
+const exitGameBtn = document.getElementById('exit-game-btn');
+
+if (nextRoundBtn) {
+  nextRoundBtn.addEventListener('click', () => {
+    gameState.roundNumber++;
+    console.log('Starting round', gameState.roundNumber);
+    
+    // Reset for new round and go back to bidding
+    initializeBidding();
+    showScreen('bidding-screen');
+  });
+}
+
+if (exitGameBtn) {
+  exitGameBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to exit the game?')) {
+      gameState.roundNumber = 1;
+      gameState.overallScores = {};
+      showScreen('lobby-screen');
+    }
+  });
+}
+
+console.log('Game initialized - Step 7: Round Results Screen');
