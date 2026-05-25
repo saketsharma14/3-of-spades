@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3 of Spades - Card Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- LOBBY SCREEN -->
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-container">
+      <div class="lobby-content">
+        
+        <!-- Game Title -->
+        <div class="game-header">
+          <h1 class="game-title">3 of Spades</h1>
+          <div class="spade-icon">♠</div>
+          <p class="game-subtitle">A Multiplayer Card Game</p>
+        </div>
+
+        <!-- How to Play Preview -->
+        <div class="how-to-play">
+          <div class="how-to-item">
+            <div class="icon">👥</div>
+            <p><strong>6 or 8 Players</strong><br>Dynamic teams that change each round</p>
+          </div>
+          <div class="how-to-item">
+            <div class="icon">🎯</div>
+            <p><strong>Bid & Win</strong><br>Bid points, pick your team, declare trump</p>
+          </div>
+          <div class="how-to-item">
+            <div class="icon">🏆</div>
+            <p><strong>250 Points</strong><br>Per round to claim victory</p>
+          </div>
+        </div>
+
+        <!-- Join Game Form -->
+        <div class="join-form">
+          <div class="form-group">
+            <label for="player-name">Enter Your Name</label>
+            <input 
+              type="text" 
+              id="player-name" 
+              placeholder="Your nickname" 
+              maxlength="20"
+            >
+          </div>
+
+          <div class="form-buttons">
+            <button id="create-room-btn" class="btn btn-primary">Create Room</button>
+            <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOM SELECTION SCREEN -->
+  <div id="room_select-screen" class="screen">
+    <div class="room-select-container">
+      <div class="room-header">
+        <button id="back-to-lobby" class="btn-back">← Back</button>
+        <h2>Select a Room</h2>
+      </div>
+
+      <div id="rooms-list" class="rooms-list">
+        <div class="room-card">
+          <h4>ROOM1</h4>
+          <p>Players: 3/6</p>
+          <p>Status: waiting</p>
+        </div>
+        <div class="room-card">
+          <h4>ROOM2</h4>
+          <p>Players: 5/6</p>
+          <p>Status: waiting</p>
+        </div>
+        <div class="room-card">
+          <h4>ROOM3</h4>
+          <p>Players: 2/6</p>
+          <p>Status: waiting</p>
+        </div>
+      </div>
+
+      <div class="room-actions">
+        <input 
+          type="text" 
+          id="room-code-input"
+          placeholder="Or enter room code..."
+          maxlength="6"
+        >
+        <button id="join-with-code-btn" class="btn btn-primary">Join Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME LOBBY SCREEN -->
+  <div id="lobby_wait-screen" class="screen">
+    <div class="game-lobby-container">
+      <div class="lobby-info">
+        <h2>Room: <span id="room-code-display">ABC123</span></h2>
+        <p class="player-count"><span id="player-count">0</span>/6 Players</p>
+      </div>
+
+      <div class="players-list">
+        <h3>Players Joined</h3>
+        <div id="players-joined" class="players-grid">
+        </div>
+      </div>
+
+      <div class="lobby-actions">
+        <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
+        <button id="leave-room-btn" class="btn btn-secondary">Leave Room</button>
+      </div>
+
+      <div class="status-message">
+        <p id="status-text">Waiting for players...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIDDING SCREEN -->
+  <div id="bidding-screen" class="screen">
+    <div class="bidding-container">
+      <div class="bidding-header">
+        <h2>Bidding Phase</h2>
+        <p class="round-info">Round <span id="round-number">1</span></p>
+      </div>
+
+      <div class="bid-display">
+        <h3>Your Bid</h3>
+        <div class="bid-amount">
+          <button id="bid-minus" class="bid-btn">−</button>
+          <input 
+            type="number" 
+            id="bid-input" 
+            value="60" 
+            min="30" 
+            max="250" 
+            readonly
+          >
+          <button id="bid-plus" class="bid-btn">+</button>
+        </div>
+      </div>
+
+      <div class="bid-actions">
+        <button id="submit-bid-btn" class="btn btn-primary">Submit Bid</button>
+        <button id="pass-bid-btn" class="btn btn-secondary">Pass</button>
+      </div>
+
+      <div class="current-bids">
+        <h3>Current Bids</h3>
+        <div id="bids-list" class="bids-list">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM SELECTION SCREEN -->
+  <div id="pick_team-screen" class="screen">
+    <div class="team-selection-container">
+      <div class="team-header">
+        <h2>You Won the Bid!</h2>
+        <p class="bid-info">Your Bid: <span id="winning-bid">0</span> points</p>
+      </div>
+
+      <div class="team-section">
+        <h3>Pick Your Teammates</h3>
+        <p class="team-instructions">Select 2 cards from the deck. Players holding these cards are your teammates.</p>
+        <div id="cards-to-select" class="cards-selection-grid">
+        </div>
+        <p id="cards-selected-info" class="cards-info">Selected: 0/2 cards</p>
+      </div>
+
+      <div class="trump-section">
+        <h3>Declare Trump Suit</h3>
+        <div class="trump-buttons">
+          <button id="trump-spade" class="trump-btn" data-suit="Spade">♠ Spades</button>
+          <button id="trump-heart" class="trump-btn" data-suit="Heart">♥ Hearts</button>
+          <button id="trump-club" class="trump-btn" data-suit="Club">♣ Clubs</button>
+          <button id="trump-diamond" class="trump-btn" data-suit="Diamond">♦ Diamonds</button>
+        </div>
+        <p id="trump-selected-info" class="trump-info">Trump: None selected</p>
+      </div>
+
+      <div class="team-actions">
+        <button id="confirm-team-btn" class="btn btn-primary" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMEPLAY SCREEN -->
+  <div id="play-screen" class="screen">
+    <div class="game-container">
+      <!-- Top Section: Game Info -->
+      <div class="game-header-bar">
+        <div class="game-info">
+          <span class="round-badge">Round <span id="current-round">1</span></span>
+          <span class="trump-badge">Trump: <span id="trump-display">-</span></span>
+        </div>
+        <div class="game-controls">
+          <button id="quit-game-btn" class="btn-icon">⚙️</button>
+        </div>
+      </div>
+
+      <!-- Middle Section: Table with Players -->
+      <div class="game-table-section">
+        <div id="game-table" class="game-table">
+          <!-- Circular table image (table.png) appears as background -->
+          <!-- Player positions will be rendered around it by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Bottom Section: Player's Hand -->
+      <div class="player-hand-section">
+        <div class="hand-info">
+          <h3>Your Hand</h3>
+          <p id="valid-cards-info" class="valid-cards-info">Cards: 0</p>
+        </div>
+        <div id="player-hand" class="player-hand">
+          <!-- Player cards will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROUND RESULT SCREEN (NEW) -->
+  <div id="round_result-screen" class="screen">
+    <div class="round-result-container">
+      <div class="result-header">
+        <h2>Round <span id="result-round">1</span> Complete!</h2>
+        <p class="result-subtitle">Final Scores</p>
+      </div>
+
+      <div class="teams-results">
+        <!-- Team 1 Results -->
+        <div class="team-result">
+          <h3 class="team-name">Team 1</h3>
+          <div id="team1-members" class="team-members">
+            <!-- Players will be populated by JavaScript -->
+          </div>
+          <div class="team-score">
+            <span class="score-label">Points:</span>
+            <span class="score-value" id="team1-score">120</span>
+            <span class="score-goal">/250</span>
+          </div>
+          <div id="team1-result" class="team-outcome">
+            <!-- Win/Loss message -->
+          </div>
+        </div>
+
+        <!-- Team 2 Results -->
+        <div class="team-result">
+          <h3 class="team-name">Team 2</h3>
+          <div id="team2-members" class="team-members">
+            <!-- Players will be populated by JavaScript -->
+          </div>
+          <div class="team-score">
+            <span class="score-label">Points:</span>
+            <span class="score-value" id="team2-score">130</span>
+            <span class="score-goal">/250</span>
+          </div>
+          <div id="team2-result" class="team-outcome">
+            <!-- Win/Loss message -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Overall Standings -->
+      <div class="overall-standings">
+        <h3>Overall Standings</h3>
+        <div id="standings-list" class="standings-list">
+          <!-- Player standings will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Round Actions -->
+      <div class="result-actions">
+        <button id="next-round-btn" class="btn btn-primary">Next Round</button>
+        <button id="exit-game-btn" class="btn btn-secondary">Exit Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="game.js"></script>
+</body>
+</html>
