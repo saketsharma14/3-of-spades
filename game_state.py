@@ -55,32 +55,30 @@ class GameState:
 
     def __init__(self, room_code, owner_name, owner_sid):
         self.room_code      = room_code
-        self.owner          = owner_name        # only owner can start game
+        self.owner          = owner_name
 
         self.players        = [owner_name]
         self.player_sids    = {owner_name: owner_sid}
         self.sid_to_name    = {owner_sid: owner_name}
         self.player_count   = 0
 
-        # Per-round state
         self.hands          = {}
         self.highest_bid    = 0
         self.highest_bidder = None
-        self.has_bid        = set()
+        self.has_bid        = set()   # players who placed at least one bid
+        self.has_passed     = set()   # players who explicitly passed
         self.bidding_closed = False
         self.chosen_cards   = []
         self.team1          = []
         self.team2          = []
         self.trump_suit     = None
 
-        # Trick state
         self.current_trick  = []
         self.led_suit       = None
         self.current_leader = None
         self.trick_number   = 0
         self.total_tricks   = 0
 
-        # Scores
         self.team1_points   = 0
         self.team2_points   = 0
         self.scores         = {owner_name: 0}
@@ -104,33 +102,27 @@ class GameState:
         return True, None
 
     def remove_player(self, sid):
-        """Remove player by sid. Returns name of removed player or None."""
         name = self.sid_to_name.pop(sid, None)
         if not name:
             return None
         self.player_sids.pop(name, None)
 
-        # If in lobby just remove cleanly
         if self.phase == self.PHASE_LOBBY:
             if name in self.players:
                 self.players.remove(name)
             self.scores.pop(name, None)
-            # Transfer ownership if owner left
             if name == self.owner and self.players:
                 self.owner = self.players[0]
             return name
 
-        # Mid-game: keep in players list so trick logic doesn't break,
-        # but mark as disconnected by removing from hands if needed
         if name in self.players:
             self.players.remove(name)
+        self.hands.pop(name, None)   # clean up disconnected player's hand
         self.scores.pop(name, None)
 
-        # If it was their turn, skip them
         if self.phase == self.PHASE_PLAYING and self.whose_turn() is None:
             self._resolve_trick()
 
-        # Transfer ownership
         if name == self.owner and self.players:
             self.owner = self.players[0]
 
@@ -150,6 +142,7 @@ class GameState:
         self.highest_bid    = 0
         self.highest_bidder = None
         self.has_bid        = set()
+        self.has_passed     = set()
         self.bidding_closed = False
         self.chosen_cards   = []
         self.team1          = []
@@ -157,6 +150,7 @@ class GameState:
         self.trump_suit     = None
         self.current_trick  = []
         self.led_suit       = None
+        self.current_leader = None
         self.trick_number   = 0
         self.total_tricks   = 48 // self.player_count
         self.team1_points   = 0
@@ -175,15 +169,15 @@ class GameState:
     def place_bid(self, name, amount):
         if self.phase != self.PHASE_BIDDING:
             return False, "Not in bidding phase."
-        if name in self.has_bid:
-            return False, "You have already bid or passed."
         if amount <= self.highest_bid:
-            return False, f"Bid must be higher than {self.highest_bid}."
+            return False, f"Bid must be higher than current highest ({self.highest_bid})."
         if amount > 250:
             return False, "Bid cannot exceed 250."
         self.highest_bid    = amount
         self.highest_bidder = name
         self.has_bid.add(name)
+        # If they previously passed, un-pass them since they're bidding again
+        self.has_passed.discard(name)
         if amount == 250:
             self.bidding_closed = True
             self._finalize_bid()
@@ -192,10 +186,14 @@ class GameState:
     def pass_bid(self, name):
         if self.phase != self.PHASE_BIDDING:
             return False, "Not in bidding phase."
-        self.has_bid.add(name)
-        # Close bidding if everyone has passed and someone has bid
-        remaining = [p for p in self.players if p not in self.has_bid]
-        if len(remaining) == 0 and self.highest_bidder:
+        if name == self.highest_bidder:
+            return False, "You are the highest bidder — close bidding instead."
+        if name in self.has_passed:
+            return False, "You already passed."
+        self.has_passed.add(name)
+        # Auto-close if everyone except the highest bidder has passed
+        others = [p for p in self.players if p != self.highest_bidder]
+        if all(p in self.has_passed for p in others) and self.highest_bidder:
             self.bidding_closed = True
             self._finalize_bid()
         return True, None
@@ -214,7 +212,8 @@ class GameState:
     # ── team selection ───────────────────────────────────────────────────────
 
     def teammates_needed(self):
-        return (self.player_count // 2) - 1
+        pc = self.player_count or len(self.players)
+        return (pc // 2) - 1
 
     def pick_teammate_card(self, card_str):
         if self.phase != self.PHASE_PICK_TEAM:
@@ -272,12 +271,12 @@ class GameState:
     # ── trick playing ────────────────────────────────────────────────────────
 
     def whose_turn(self):
-        if not self.current_leader:
-            return None
-        played = {entry["player"] for entry in self.current_trick}
+        if not self.current_leader or self.current_leader not in self.players:
+            return self.players[0] if self.players else None
+        played       = {entry["player"] for entry in self.current_trick}
         leader_index = self.players.index(self.current_leader)
-        for i in range(self.player_count):
-            name = self.players[(leader_index + i) % self.player_count]
+        for i in range(len(self.players)):   # use len(players) not player_count
+            name = self.players[(leader_index + i) % len(self.players)]
             if name not in played:
                 return name
         return None
@@ -305,7 +304,7 @@ class GameState:
         if self.led_suit is None:
             self.led_suit = card.suit
         self.current_trick.append({"player": name, "card": card})
-        if len(self.current_trick) == self.player_count:
+        if len(self.current_trick) == len(self.players):   # use len(players)
             self._resolve_trick()
         return True, None
 
@@ -326,8 +325,8 @@ class GameState:
     def _get_trick_winner(self):
         winning = self.current_trick[0]
         for entry in self.current_trick[1:]:
-            card   = entry["card"]
-            w_card = winning["card"]
+            card    = entry["card"]
+            w_card  = winning["card"]
             w_trump = w_card.suit == self.trump_suit
             c_trump = card.suit   == self.trump_suit
             w_led   = w_card.suit == self.led_suit
@@ -381,6 +380,7 @@ class GameState:
             "highest_bid":      self.highest_bid,
             "highest_bidder":   self.highest_bidder,
             "has_bid":          list(self.has_bid),
+            "has_passed":       list(self.has_passed),
             "team1":            self.team1,
             "team2":            self.team2,
             "trump_suit":       self.trump_suit,
@@ -397,6 +397,7 @@ class GameState:
             "scores":           self.scores,
             "chosen_cards":     [c.to_dict() for c in self.chosen_cards],
             "teammates_needed": self.teammates_needed() if self.phase == self.PHASE_PICK_TEAM else 0,
+            "bidding_closed":   self.bidding_closed,
         }
 
     def private_state(self, name):
@@ -416,8 +417,8 @@ class GameState:
 
 class RoomManager:
     def __init__(self):
-        self.rooms = {}         # room_code → GameState
-        self.sid_to_room = {}   # sid → room_code
+        self.rooms       = {}
+        self.sid_to_room = {}
 
     def _generate_code(self):
         chars = string.ascii_uppercase + string.digits
@@ -427,16 +428,14 @@ class RoomManager:
                 return code
 
     def create_room(self, owner_name, owner_sid):
-        """Create a new room. Returns (room_code, error)."""
         if owner_sid in self.sid_to_room:
             return None, "You are already in a room."
         code = self._generate_code()
-        self.rooms[code]          = GameState(code, owner_name, owner_sid)
+        self.rooms[code]            = GameState(code, owner_name, owner_sid)
         self.sid_to_room[owner_sid] = code
         return code, None
 
     def join_room(self, code, name, sid):
-        """Join an existing room. Returns (GameState, error)."""
         if sid in self.sid_to_room:
             return None, "You are already in a room."
         code = code.upper().strip()
@@ -450,15 +449,10 @@ class RoomManager:
         return room, None
 
     def get_room_by_sid(self, sid):
-        """Get the room a socket is in. Returns GameState or None."""
         code = self.sid_to_room.get(sid)
         return self.rooms.get(code) if code else None
 
     def remove_player(self, sid):
-        """
-        Remove a player by sid.
-        Returns (room, removed_name) or (None, None) if not found.
-        """
         code = self.sid_to_room.pop(sid, None)
         if not code:
             return None, None
@@ -467,11 +461,10 @@ class RoomManager:
             return None, None
         name = room.remove_player(sid)
         if room.is_empty():
-            del self.rooms[code]    # clean up empty rooms
+            del self.rooms[code]
         return room, name
 
     def list_rooms(self):
-        """Returns a list of room summaries for a lobby browser."""
         return [
             {
                 "code":         code,
