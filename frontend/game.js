@@ -1,6 +1,10 @@
 /* ========================================
-   3 OF SPADES - STEP 6: GAME LOGIC
+   3 OF SPADES - STEP 8: FINAL VERSION
+   Socket.IO Ready + Polish
    ======================================== */
+
+// Socket.IO connection (will connect to backend)
+let socket = null;
 
 // Game state
 let gameState = {
@@ -11,12 +15,11 @@ let gameState = {
   allBids: {},
   selectedCards: [],
   selectedTrump: null,
-  roundNumber: 1,
-  overallScores: {},
   playerHand: [],
   validCards: [],
   roundNumber: 1,
   overallScores: {},
+  gamePhase: 'lobby', // lobby, bidding, team_selection, gameplay, results
 };
 
 // Mock player data
@@ -29,6 +32,96 @@ const allCards = [
   '3♣', '4♣', '5♣', '6♣', '7♣', '8♣', '9♣', '10♣', 'J♣', 'Q♣', 'K♣', 'A♣',
   '3♦', '4♦', '5♦', '6♦', '7♦', '8♦', '9♦', '10♦', 'J♦', 'Q♦', 'K♦', 'A♦',
 ];
+
+// ---- SOCKET.IO INITIALIZATION ----
+
+/**
+ * Initialize Socket.IO connection
+ * Called when connecting to the backend server
+ */
+function initializeSocket() {
+  // Connect to backend (when deployed)
+  socket = io({ transports: ['websocket', 'polling'] });
+  
+  // Listen for connection
+  socket.on('connect', () => {
+    console.log('Connected to server');
+    addSystemMessage('Connected to game server');
+  });
+  
+  // Listen for errors
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    addSystemMessage('Connection error: ' + error);
+  });
+  
+  // ---- LISTEN FOR GAME STATE UPDATES ----
+  
+  // Room created
+  socket.on('room_created', (data) => {
+    console.log('Room created:', data);
+    gameState.roomCode = data.room_code;
+    document.getElementById('room-code-display').textContent = gameState.roomCode;
+  });
+  
+  // Room joined
+  socket.on('room_joined', (data) => {
+    console.log('Room joined:', data);
+    gameState.players = data.players;
+    updateGameLobby(gameState.players);
+  });
+  
+  // Players list updated
+  socket.on('players_updated', (data) => {
+    console.log('Players updated:', data);
+    gameState.players = data.players;
+    updateGameLobby(gameState.players);
+  });
+  
+  // Game state update (public - all players)
+  socket.on('state_update', (data) => {
+    console.log('State update:', data);
+    gameState.gamePhase = data.phase;
+    gameState.roundNumber = data.round;
+    
+    // Route based on phase
+    switch(data.phase) {
+      case 'bidding':
+        updateBidsDisplay();
+        break;
+      case 'team_selection':
+        // Show team selection
+        break;
+      case 'gameplay':
+        // Update gameplay table
+        break;
+      case 'results':
+        // Show results
+        break;
+    }
+  });
+  
+  // Private update (per-player hand and valid cards)
+  socket.on('private_update', (data) => {
+    console.log('Private update:', data);
+    gameState.playerHand = data.hand || [];
+    gameState.validCards = data.valid_cards || [];
+    renderPlayerHand();
+  });
+  
+  // Error from server
+  socket.on('error_message', (data) => {
+    console.error('Server error:', data);
+    alert('Error: ' + data.message);
+  });
+}
+
+/**
+ * Add system message for testing
+ */
+function addSystemMessage(message) {
+  console.log('[SYSTEM]', message);
+}
 
 // ---- DOM ELEMENTS ----
 const playerNameInput = document.getElementById('player-name');
@@ -80,6 +173,12 @@ function generateRoomCode() {
   return code;
 }
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function updateGameLobby(players) {
   const playersList = document.getElementById('players-joined');
   const playerCount = document.getElementById('player-count');
@@ -94,7 +193,7 @@ function updateGameLobby(players) {
     playerDiv.className = 'player-item ready';
     playerDiv.innerHTML = `
       <div class="player-avatar">👤</div>
-      <div class="player-name">${player}</div>
+      <div class="player-name">${escapeHtml(player)}</div>
     `;
     playersList.appendChild(playerDiv);
   });
@@ -139,7 +238,7 @@ function updateBidsDisplay() {
     const bidColor = bid === null ? 'opacity: 0.7;' : '';
     
     bidItem.innerHTML = `
-      <span class="player-name">${player}</span>
+      <span class="player-name">${escapeHtml(player)}</span>
       <span class="bid-amount" style="${bidColor}">${bidAmount}</span>
     `;
     bidsList.appendChild(bidItem);
@@ -157,7 +256,6 @@ function initializeTeamSelection(winningBid) {
   gameState.selectedTrump = null;
   
   document.getElementById('winning-bid').textContent = winningBid;
-  
   renderCardSelectionGrid();
   updateTrumpDisplay();
   updateConfirmButton();
@@ -238,19 +336,15 @@ function updateConfirmButton() {
   confirmTeamBtn.disabled = !canConfirm;
 }
 
-// ---- GAMEPLAY FUNCTIONS (NEW) ----
+// ---- GAMEPLAY FUNCTIONS ----
 
-/**
- * Initialize gameplay screen with players and hand
- */
 function initializeGameplay(trump) {
   console.log('Game started with trump:', trump);
   
-  // Update display
   document.getElementById('trump-display').textContent = trump;
-  document.getElementById('current-round').textContent = '1';
+  document.getElementById('current-round').textContent = gameState.roundNumber;
   
-  // Deal mock hand to player (8 random cards)
+  // Deal mock hand
   gameState.playerHand = [];
   gameState.validCards = [];
   
@@ -261,21 +355,13 @@ function initializeGameplay(trump) {
     }
   }
   
-  // Set first few as valid
   gameState.validCards = gameState.playerHand.slice(0, 3);
-  
-  // Render hand
   renderPlayerHand();
-  
-  // Render circular table
   renderCircularTable();
   
   console.log('Gameplay initialized');
 }
 
-/**
- * Render player's hand at bottom
- */
 function renderPlayerHand() {
   playerHandContainer.innerHTML = '';
   
@@ -304,27 +390,21 @@ function renderPlayerHand() {
     playerHandContainer.appendChild(cardEl);
   });
   
-  // Update hand info
   document.getElementById('valid-cards-info').textContent = 
     `Cards: ${gameState.playerHand.length}`;
 }
 
-/**
- * Render circular table with players around table image
- */
 function renderCircularTable() {
   const table = document.getElementById('game-table');
   table.innerHTML = '';
   
   const playerCount = gameState.players.length;
-  const radius = 180; // Distance from center of table
+  const radius = 180;
   const angleStep = (2 * Math.PI) / playerCount;
   
-  // Get player with current turn (mock: first player)
   const activePlayer = gameState.players[0];
   
   gameState.players.forEach((player, idx) => {
-    // Calculate angle - start from top and go clockwise
     const angle = angleStep * idx - Math.PI / 2;
     const x = Math.cos(angle) * radius;
     const y = Math.sin(angle) * radius;
@@ -332,8 +412,6 @@ function renderCircularTable() {
     const position = document.createElement('div');
     position.className = 'player-position';
     position.dataset.player = player;
-    
-    // Position player around the center
     position.style.left = `calc(50% + ${x}px - 40px)`;
     position.style.top = `calc(50% + ${y}px - 50px)`;
     
@@ -342,7 +420,7 @@ function renderCircularTable() {
     
     position.innerHTML = `
       <div class="${cardClass}${isCurrent}">
-        <div class="player-name">${player}</div>
+        <div class="player-name">${escapeHtml(player)}</div>
         <div class="player-score">${idx === 0 ? '1 trick' : '0 tricks'}</div>
       </div>
     `;
@@ -351,20 +429,113 @@ function renderCircularTable() {
   });
 }
 
-/**
- * Handle card play
- */
 function playCard(card) {
   console.log('Card played:', card, 'by:', gameState.playerName);
   
-  // Remove from hand
+  // Emit to backend via Socket.IO
+  if (socket) {
+    socket.emit('play_card', { card: card });
+  }
+  
   gameState.playerHand = gameState.playerHand.filter(c => c !== card);
   gameState.validCards = gameState.validCards.filter(c => c !== card);
   
-  // Re-render hand
   renderPlayerHand();
-  
   alert(`You played ${card}!`);
+}
+
+// ---- ROUND RESULTS FUNCTIONS ----
+
+function initializeRoundResults() {
+  const team1Score = Math.floor(Math.random() * 150) + 80;
+  const team2Score = 250 - team1Score;
+  const team1Won = team1Score >= gameState.currentBid;
+  
+  if (Object.keys(gameState.overallScores).length === 0) {
+    gameState.players.forEach(player => {
+      gameState.overallScores[player] = 0;
+    });
+  }
+  
+  if (team1Won) {
+    gameState.overallScores[gameState.players[0]] += team1Score;
+    gameState.overallScores[gameState.players[1]] += team1Score;
+  } else {
+    gameState.overallScores[gameState.players[2]] += team2Score;
+    gameState.overallScores[gameState.players[3]] += team2Score;
+  }
+  
+  displayRoundResults(team1Score, team2Score, team1Won);
+  console.log('Round results initialized');
+}
+
+function displayRoundResults(team1Score, team2Score, team1Won) {
+  document.getElementById('result-round').textContent = gameState.roundNumber;
+  
+  document.getElementById('team1-score').textContent = team1Score;
+  document.getElementById('team1-members').innerHTML = `
+    <div class="team-member-item">
+      <span class="team-member-name">${escapeHtml(gameState.players[0])}</span> (Bid Winner)
+    </div>
+    <div class="team-member-item">
+      <span class="team-member-name">${escapeHtml(gameState.players[1])}</span>
+    </div>
+  `;
+  
+  const team1Result = document.getElementById('team1-result');
+  if (team1Won) {
+    team1Result.className = 'team-outcome win';
+    team1Result.textContent = `✓ Won! +${team1Score} points`;
+    document.querySelectorAll('.team-result')[0].classList.add('winner');
+  } else {
+    team1Result.className = 'team-outcome loss';
+    team1Result.textContent = `✗ Failed bid`;
+  }
+  
+  document.getElementById('team2-score').textContent = team2Score;
+  document.getElementById('team2-members').innerHTML = `
+    <div class="team-member-item">
+      <span class="team-member-name">${escapeHtml(gameState.players[2])}</span>
+    </div>
+    <div class="team-member-item">
+      <span class="team-member-name">${escapeHtml(gameState.players[3])}</span>
+    </div>
+  `;
+  
+  const team2Result = document.getElementById('team2-result');
+  if (!team1Won) {
+    team2Result.className = 'team-outcome win';
+    team2Result.textContent = `✓ Won! +${team2Score} points`;
+    document.querySelectorAll('.team-result')[1].classList.add('winner');
+  } else {
+    team2Result.className = 'team-outcome loss';
+    team2Result.textContent = `✗ Defended`;
+  }
+  
+  displayStandings();
+}
+
+function displayStandings() {
+  const standingsList = document.getElementById('standings-list');
+  standingsList.innerHTML = '';
+  
+  const sorted = Object.entries(gameState.overallScores)
+    .sort((a, b) => b[1] - a[1]);
+  
+  sorted.forEach((entry, idx) => {
+    const [player, score] = entry;
+    const standingItem = document.createElement('div');
+    standingItem.className = 'standing-item';
+    if (idx === 0) standingItem.classList.add('top');
+    
+    standingItem.innerHTML = `
+      <span class="standing-rank">#${idx + 1}</span>
+      <span class="standing-name">${escapeHtml(player)}</span>
+      <span class="standing-score">${score} pts</span>
+    `;
+    
+    standingsList.appendChild(standingItem);
+  });
 }
 
 // ---- EVENT LISTENERS: LOBBY ----
@@ -380,6 +551,11 @@ createRoomBtn.addEventListener('click', () => {
   gameState.playerName = name;
   gameState.roomCode = generateRoomCode();
   gameState.players = [name];
+  
+  // Emit to backend
+  if (socket) {
+    socket.emit('create_room', { player_name: name });
+  }
   
   document.getElementById('room-code-display').textContent = gameState.roomCode;
   updateGameLobby(gameState.players);
@@ -419,6 +595,11 @@ joinWithCodeBtn.addEventListener('click', () => {
   gameState.roomCode = roomCode;
   gameState.players = [gameState.playerName, ...mockPlayers.slice(0, 4)];
   
+  // Emit to backend
+  if (socket) {
+    socket.emit('join_room', { room_code: roomCode, player_name: gameState.playerName });
+  }
+  
   document.getElementById('room-code-display').textContent = gameState.roomCode;
   updateGameLobby(gameState.players);
   
@@ -426,6 +607,9 @@ joinWithCodeBtn.addEventListener('click', () => {
 });
 
 leaveRoomBtn.addEventListener('click', () => {
+  if (socket) {
+    socket.emit('leave_room', {});
+  }
   gameState.roomCode = '';
   gameState.players = [];
   showScreen('lobby-screen');
@@ -446,7 +630,10 @@ roomCodeInput.addEventListener('keypress', (e) => {
 // ---- EVENT LISTENERS: GAME LOBBY ----
 
 startGameBtn.addEventListener('click', () => {
-  console.log('Starting game with players:', gameState.players);
+  console.log('Starting game');
+  if (socket) {
+    socket.emit('start_game', {});
+  }
   initializeBidding();
   showScreen('bidding-screen');
 });
@@ -464,13 +651,19 @@ bidPlusBtn.addEventListener('click', () => {
 });
 
 submitBidBtn.addEventListener('click', () => {
-  console.log('Bid submitted:', gameState.currentBid);
+  console.log('Submitting bid:', gameState.currentBid);
+  if (socket) {
+    socket.emit('place_bid', { amount: gameState.currentBid });
+  }
   initializeTeamSelection(gameState.currentBid);
   showScreen('pick_team-screen');
 });
 
 passBidBtn.addEventListener('click', () => {
-  console.log('Player passed:', gameState.playerName);
+  console.log('Passing bid');
+  if (socket) {
+    socket.emit('pass_bid', {});
+  }
   gameState.allBids[gameState.playerName] = null;
   updateBidsDisplay();
 });
@@ -490,7 +683,13 @@ confirmTeamBtn.addEventListener('click', () => {
     trump: gameState.selectedTrump,
   });
   
-  // Initialize gameplay and show game screen
+  if (socket) {
+    socket.emit('confirm_team', {
+      cards: gameState.selectedCards,
+      trump: gameState.selectedTrump
+    });
+  }
+  
   initializeGameplay(gameState.selectedTrump);
   showScreen('play-screen');
 });
@@ -500,125 +699,10 @@ confirmTeamBtn.addEventListener('click', () => {
 quitGameBtn.addEventListener('click', () => {
   if (confirm('Are you sure you want to quit?')) {
     gameState.playerHand = [];
-    // Initialize round results and show results screen
     initializeRoundResults();
     showScreen('round_result-screen');
   }
 });
-
-// ---- ROUND RESULTS FUNCTIONS (NEW) ----
-
-/**
- * Initialize round results with mock data
- */
-function initializeRoundResults() {
-  // Mock team scores for this round
-  const team1Score = Math.floor(Math.random() * 150) + 80;
-  const team2Score = 250 - team1Score;
-  
-  const team1Won = team1Score >= gameState.currentBid;
-  
-  // Update overall scores
-  if (Object.keys(gameState.overallScores).length === 0) {
-    gameState.players.forEach(player => {
-      gameState.overallScores[player] = 0;
-    });
-  }
-  
-  // Add round points (mock: distribute to team 1)
-  if (team1Won) {
-    gameState.overallScores[gameState.players[0]] += team1Score;
-    gameState.overallScores[gameState.players[1]] += team1Score;
-  } else {
-    gameState.overallScores[gameState.players[2]] += team2Score;
-    gameState.overallScores[gameState.players[3]] += team2Score;
-  }
-  
-  // Display round results
-  displayRoundResults(team1Score, team2Score, team1Won);
-  
-  console.log('Round results initialized');
-}
-
-/**
- * Display round results on screen
- */
-function displayRoundResults(team1Score, team2Score, team1Won) {
-  // Update round number
-  document.getElementById('result-round').textContent = gameState.roundNumber;
-  
-  // Team 1 Results
-  document.getElementById('team1-score').textContent = team1Score;
-  document.getElementById('team1-members').innerHTML = `
-    <div class="team-member-item">
-      <span class="team-member-name">${gameState.players[0]}</span> (Bid Winner)
-    </div>
-    <div class="team-member-item">
-      <span class="team-member-name">${gameState.players[1]}</span>
-    </div>
-  `;
-  
-  const team1Result = document.getElementById('team1-result');
-  if (team1Won) {
-    team1Result.className = 'team-outcome win';
-    team1Result.textContent = `✓ Won! +${team1Score} points`;
-    document.querySelectorAll('.team-result')[0].classList.add('winner');
-  } else {
-    team1Result.className = 'team-outcome loss';
-    team1Result.textContent = `✗ Failed bid`;
-  }
-  
-  // Team 2 Results
-  document.getElementById('team2-score').textContent = team2Score;
-  document.getElementById('team2-members').innerHTML = `
-    <div class="team-member-item">
-      <span class="team-member-name">${gameState.players[2]}</span>
-    </div>
-    <div class="team-member-item">
-      <span class="team-member-name">${gameState.players[3]}</span>
-    </div>
-  `;
-  
-  const team2Result = document.getElementById('team2-result');
-  if (!team1Won) {
-    team2Result.className = 'team-outcome win';
-    team2Result.textContent = `✓ Won! +${team2Score} points`;
-    document.querySelectorAll('.team-result')[1].classList.add('winner');
-  } else {
-    team2Result.className = 'team-outcome loss';
-    team2Result.textContent = `✗ Defended`;
-  }
-  
-  // Display standings
-  displayStandings();
-}
-
-/**
- * Display overall standings
- */
-function displayStandings() {
-  const standingsList = document.getElementById('standings-list');
-  standingsList.innerHTML = '';
-  
-  // Sort players by score
-  const sorted = Object.entries(gameState.overallScores)
-    .sort((a, b) => b[1] - a[1]);
-  
-  sorted.forEach((entry, idx) => {
-    const [player, score] = entry;
-    const standingItem = document.createElement('div');
-    standingItem.className = 'standing-item';
-    if (idx === 0) standingItem.classList.add('top');
-    
-    standingItem.innerHTML = `
-      <span class="standing-rank">#${idx + 1}</span>
-      <span class="standing-name">${player}</span>
-      <span class="standing-score">${score} pts</span>
-    `;
-    
-    standingsList.appendChild(standingItem);
-  });
-}
 
 // ---- EVENT LISTENERS: ROUND RESULTS ----
 
@@ -630,7 +714,10 @@ if (nextRoundBtn) {
     gameState.roundNumber++;
     console.log('Starting round', gameState.roundNumber);
     
-    // Reset for new round and go back to bidding
+    if (socket) {
+      socket.emit('next_round', {});
+    }
+    
     initializeBidding();
     showScreen('bidding-screen');
   });
@@ -639,6 +726,9 @@ if (nextRoundBtn) {
 if (exitGameBtn) {
   exitGameBtn.addEventListener('click', () => {
     if (confirm('Are you sure you want to exit the game?')) {
+      if (socket) {
+        socket.emit('quit_game', {});
+      }
       gameState.roundNumber = 1;
       gameState.overallScores = {};
       showScreen('lobby-screen');
@@ -646,4 +736,24 @@ if (exitGameBtn) {
   });
 }
 
-console.log('Game initialized - Step 7: Round Results Screen');
+// ---- INITIALIZATION ----
+
+// Uncomment this line to enable Socket.IO when backend is ready
+// initializeSocket();
+
+console.log('=================================');
+console.log('3 OF SPADES - STEP 8: FINAL VERSION');
+console.log('=================================');
+console.log('Frontend ready for Socket.IO integration');
+console.log('Backend events to emit:');
+console.log('  - create_room');
+console.log('  - join_room');
+console.log('  - start_game');
+console.log('  - place_bid');
+console.log('  - pass_bid');
+console.log('  - confirm_team');
+console.log('  - play_card');
+console.log('  - next_round');
+console.log('  - quit_game');
+console.log('  - leave_room');
+console.log('=================================');
