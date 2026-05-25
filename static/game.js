@@ -226,6 +226,21 @@ function renderPickTeam(state) {
 
   if (waitMsg) waitMsg.textContent = "";
   if (pickerSection) pickerSection.style.display = "grid";
+// Add this inside renderPickTeam(), after the waitMsg check, before the card grid
+  if (isBidder) {
+  const handRef = document.getElementById("bidder-hand-reference");
+  if (handRef && privateState.hand) {
+      handRef.innerHTML = "<h4>Your Hand:</h4>";
+      privateState.hand.forEach(card => {
+      const img = document.createElement("img");
+      img.src       = getCardImage(card.display);
+      img.alt       = card.display;
+      img.className = "card-img";
+      img.title     = card.display;
+      handRef.appendChild(img);
+      });
+}
+}
 
   const needed  = state.teammates_needed;
   const already = state.chosen_cards.length;
