@@ -52,6 +52,7 @@ class GameState:
     PHASE_TRUMP     = "trump"
     PHASE_PLAYING   = "playing"
     PHASE_ROUND_END = "round_end"
+    PHASE_GAME_OVER = "game_over"     # NEW: terminal state, no more rounds
 
     def __init__(self, room_code, owner_name, owner_sid):
         self.room_code      = room_code
@@ -83,6 +84,12 @@ class GameState:
         self.team2_points   = 0
         self.scores         = {owner_name: 0}
         self.round_number   = 0
+
+        # ── NEW: game-ending state ───────────────────────────────────────────
+        self.target_score   = 0          # 0 means "no target / infinite play"
+        self.game_over      = False
+        self.winners        = []         # list of names (≥1 for ties)
+        self.end_game_votes = set()      # names who voted to end early
 
         self.phase          = self.PHASE_LOBBY
 
@@ -134,6 +141,106 @@ class GameState:
     def is_empty(self):
         return len(self.players) == 0
 
+    # ── NEW: target-score and end-game-voting ────────────────────────────────
+
+    def set_target_score(self, requester, amount):
+        """
+        Host-only. Sets the score a player must reach to win.
+        Set to 0 to disable (free play). Must be done in lobby phase.
+        """
+        if requester != self.owner:
+            return False, "Only the room owner can set the target score."
+        if self.phase != self.PHASE_LOBBY:
+            return False, "Target score can only be changed before the game starts."
+        try:
+            amount = int(amount)
+        except (TypeError, ValueError):
+            return False, "Target score must be a number."
+        if amount < 0:
+            return False, "Target score cannot be negative."
+        self.target_score = amount
+        return True, None
+
+    def vote_end_game(self, name):
+        """
+        A player toggles their vote to end the game immediately.
+        Returns (success, error). Once the vote count exceeds half the players,
+        the game ends and current leader(s) win.
+        Allowed in any phase except lobby and game_over.
+        """
+        if self.phase in (self.PHASE_LOBBY, self.PHASE_GAME_OVER):
+            return False, "Cannot vote to end in this phase."
+        if name not in self.players:
+            return False, "You are not in this game."
+        # Toggle the player's vote
+        if name in self.end_game_votes:
+            self.end_game_votes.discard(name)
+        else:
+            self.end_game_votes.add(name)
+        # If MORE than half voted yes, end the game now
+        # (strict majority — "more people confirm than others")
+        if len(self.end_game_votes) > len(self.players) / 2:
+            self._finalize_game(reason="vote")
+        return True, None
+
+    def _finalize_game(self, reason="target"):
+        """
+        End the game. Winner = player(s) with highest score (joint if tied).
+        `reason` is "target" (someone hit target) or "vote" (early end).
+        """
+        if not self.scores:
+            self.winners = []
+        else:
+            top = max(self.scores.values())
+            # Joint winners on tie
+            self.winners = [p for p, s in self.scores.items() if s == top]
+        self.game_over   = True
+        self.end_reason  = reason
+        self.phase       = self.PHASE_GAME_OVER
+
+    def reset_to_lobby(self, requester):
+        """
+        After a game is over, send the room back to the lobby so the host can
+        change the target score and start a new game. Wipes scores, round
+        state, hands — but keeps players, room code, and ownership intact.
+        Only the owner can trigger this.
+        """
+        if requester != self.owner:
+            return False, "Only the room owner can return to lobby."
+        if self.phase != self.PHASE_GAME_OVER:
+            return False, "Game is not over yet."
+        # Reset everything game-state related; keep players, owner, room code.
+        self.player_count   = 0
+        self.hands          = {}
+        self.highest_bid    = 0
+        self.highest_bidder = None
+        self.has_bid        = set()
+        self.has_passed     = set()
+        self.bidding_closed = False
+        self.chosen_cards   = []
+        self.team1          = []
+        self.team2          = []
+        self.trump_suit     = None
+        self.current_trick  = []
+        self.led_suit       = None
+        self.current_leader = None
+        self.trick_number   = 0
+        self.total_tricks   = 0
+        self.team1_points   = 0
+        self.team2_points   = 0
+        # Fresh scoreboard so the next game starts at zero
+        self.scores         = {p: 0 for p in self.players}
+        self.round_number   = 0
+        # Clear game-over state
+        self.game_over      = False
+        self.winners        = []
+        self.end_game_votes = set()
+        if hasattr(self, "end_reason"):
+            delattr(self, "end_reason")
+        self.phase = self.PHASE_LOBBY
+        # Note: target_score is intentionally kept so host can tweak it
+        return True, None
+
     # ── round setup ──────────────────────────────────────────────────────────
 
     def start_round(self):
@@ -155,6 +262,7 @@ class GameState:
         self.total_tricks   = 48 // self.player_count
         self.team1_points   = 0
         self.team2_points   = 0
+        self.end_game_votes = set()   # NEW: clear votes each round
 
         deck = build_deck()
         random.shuffle(deck)
@@ -348,12 +456,22 @@ class GameState:
 
     def _end_round(self):
         self.phase = self.PHASE_ROUND_END
+        # Symmetric scoring: winner of the round gets exactly the bid amount.
+        # Bonus points captured beyond the bid don't matter; chasers' actual
+        # points captured don't matter either. Cleaner and easier to reason
+        # about than awarding "what you captured".
         if self.team1_points >= self.highest_bid:
             for p in self.team1:
-                self.scores[p] += self.team1_points
+                self.scores[p] += self.highest_bid
         else:
             for p in self.team2:
                 self.scores[p] += self.highest_bid
+
+        # check if anyone has hit the target score → end the game.
+        # target_score == 0 means "no target", play forever.
+        if self.target_score > 0 and self.scores:
+            if max(self.scores.values()) >= self.target_score:
+                self._finalize_game(reason="target")
 
     def round_result(self):
         return {
@@ -398,6 +516,14 @@ class GameState:
             "chosen_cards":     [c.to_dict() for c in self.chosen_cards],
             "teammates_needed": self.teammates_needed() if self.phase == self.PHASE_PICK_TEAM else 0,
             "bidding_closed":   self.bidding_closed,
+
+            # NEW: game-ending info
+            "target_score":     self.target_score,
+            "game_over":        self.game_over,
+            "winners":          self.winners,
+            "end_reason":       getattr(self, "end_reason", None),
+            "end_game_votes":   list(self.end_game_votes),
+            "votes_needed":     (len(self.players) // 2) + 1,  # strict majority
         }
 
     def private_state(self, name):
