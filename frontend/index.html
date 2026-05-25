@@ -66,7 +66,6 @@
       </div>
 
       <div id="rooms-list" class="rooms-list">
-        <!-- Rooms will be populated by JavaScript -->
         <div class="room-card">
           <h4>ROOM1</h4>
           <p>Players: 3/6</p>
@@ -96,7 +95,7 @@
     </div>
   </div>
 
-  <!-- GAME LOBBY SCREEN (NEW) -->
+  <!-- GAME LOBBY SCREEN -->
   <div id="lobby_wait-screen" class="screen">
     <div class="game-lobby-container">
       <div class="lobby-info">
@@ -118,6 +117,44 @@
 
       <div class="status-message">
         <p id="status-text">Waiting for players...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIDDING SCREEN (NEW) -->
+  <div id="bidding-screen" class="screen">
+    <div class="bidding-container">
+      <div class="bidding-header">
+        <h2>Bidding Phase</h2>
+        <p class="round-info">Round <span id="round-number">1</span></p>
+      </div>
+
+      <div class="bid-display">
+        <h3>Your Bid</h3>
+        <div class="bid-amount">
+          <button id="bid-minus" class="bid-btn">−</button>
+          <input 
+            type="number" 
+            id="bid-input" 
+            value="60" 
+            min="30" 
+            max="250" 
+            readonly
+          >
+          <button id="bid-plus" class="bid-btn">+</button>
+        </div>
+      </div>
+
+      <div class="bid-actions">
+        <button id="submit-bid-btn" class="btn btn-primary">Submit Bid</button>
+        <button id="pass-bid-btn" class="btn btn-secondary">Pass</button>
+      </div>
+
+      <div class="current-bids">
+        <h3>Current Bids</h3>
+        <div id="bids-list" class="bids-list">
+          <!-- Current bids will be populated by JavaScript -->
+        </div>
       </div>
     </div>
   </div>

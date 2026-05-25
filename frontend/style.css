@@ -1,12 +1,12 @@
 /* ========================================
-   3 OF SPADES - STEP 3: CSS
+   3 OF SPADES - STEP 4: CSS
    ======================================== */
 
 /* ---- CSS VARIABLES ---- */
 :root {
-  --primary-color: #c41e3a;        /* Deep card red */
-  --secondary-color: #1a1a1a;      /* Charcoal black */
-  --accent-color: #ffd700;         /* Gold highlight */
+  --primary-color: #c41e3a;
+  --secondary-color: #1a1a1a;
+  --accent-color: #ffd700;
   --text-light: #ffffff;
   --text-dark: #1a1a1a;
   --success-color: #4caf50;
@@ -111,7 +111,6 @@ input {
   align-items: center;
 }
 
-/* For scrollable content screens */
 #lobby_wait-screen.active {
   align-items: flex-start;
   padding-top: var(--space-xl);
@@ -135,7 +134,6 @@ input {
   width: 100%;
 }
 
-/* Game Header */
 .game-header {
   text-align: center;
   margin-bottom: var(--space-xl);
@@ -163,7 +161,6 @@ input {
   letter-spacing: 1px;
 }
 
-/* How to Play Cards */
 .how-to-play {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -205,7 +202,6 @@ input {
   margin-bottom: 0.5rem;
 }
 
-/* Join Form */
 .join-form {
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid var(--primary-color);
@@ -346,7 +342,7 @@ input {
 }
 
 /* ========================================
-   GAME LOBBY SCREEN (NEW)
+   GAME LOBBY SCREEN
    ======================================== */
 
 #lobby_wait-screen {
@@ -443,6 +439,140 @@ input {
 .status-message p {
   font-size: 1.1rem;
   animation: pulse 2s infinite;
+}
+
+/* ========================================
+   BIDDING SCREEN (NEW)
+   ======================================== */
+
+#bidding-screen {
+  background: transparent;
+}
+
+.bidding-container {
+  max-width: 600px;
+  width: 100%;
+  animation: fadeIn 0.5s ease;
+}
+
+.bidding-header {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.bidding-header h2 {
+  color: var(--text-light);
+  margin-bottom: var(--space-sm);
+}
+
+.round-info {
+  color: var(--accent-color);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.bid-display {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.bid-display h3 {
+  color: var(--accent-color);
+  margin-bottom: var(--space-md);
+}
+
+.bid-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.bid-btn {
+  background: var(--primary-color);
+  color: var(--text-light);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bid-btn:hover {
+  background: transparent;
+  border: 2px solid var(--primary-color);
+  transform: scale(1.1);
+}
+
+#bid-input {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  text-align: center;
+  width: 150px;
+  border: none;
+  border-bottom: 2px solid var(--accent-color);
+  background: transparent;
+  padding: var(--space-md) 0;
+}
+
+#bid-input:focus {
+  outline: none;
+}
+
+.bid-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.current-bids {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(196, 30, 58, 0.2);
+  border-radius: 0.5rem;
+  padding: var(--space-md);
+}
+
+.current-bids h3 {
+  color: var(--accent-color);
+  margin-bottom: var(--space-md);
+  font-size: 1.2rem;
+}
+
+.bids-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.bid-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.25rem;
+  color: var(--text-light);
+}
+
+.bid-item .player-name {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.bid-item .bid-amount {
+  font-weight: 700;
+  color: var(--text-light);
 }
 
 /* Buttons */
@@ -576,6 +706,10 @@ input {
   .lobby-actions {
     grid-template-columns: 1fr;
   }
+
+  .bid-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -602,5 +736,20 @@ input {
 
   .player-count {
     font-size: 1.1rem;
+  }
+
+  .bid-amount {
+    flex-direction: column;
+  }
+
+  .bid-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  #bid-input {
+    font-size: 2rem;
+    width: 120px;
   }
 }

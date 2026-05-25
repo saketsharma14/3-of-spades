@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 3: GAME LOGIC
+   3 OF SPADES - STEP 4: GAME LOGIC
    ======================================== */
 
 // Game state
@@ -7,9 +7,11 @@ let gameState = {
   playerName: '',
   roomCode: '',
   players: [],
+  currentBid: 60,
+  allBids: {},
 };
 
-// Mock player data (will be replaced with real data in later steps)
+// Mock player data
 const mockPlayers = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
 
 // ---- DOM ELEMENTS ----
@@ -22,19 +24,23 @@ const roomCodeInput = document.getElementById('room-code-input');
 const startGameBtn = document.getElementById('start-game-btn');
 const leaveRoomBtn = document.getElementById('leave-room-btn');
 
+// Bidding screen elements
+const bidMinusBtn = document.getElementById('bid-minus');
+const bidPlusBtn = document.getElementById('bid-plus');
+const bidInput = document.getElementById('bid-input');
+const submitBidBtn = document.getElementById('submit-bid-btn');
+const passBidBtn = document.getElementById('pass-bid-btn');
+
 // ---- SCREEN NAVIGATION ----
 
 /**
  * Show a specific screen and hide all others
- * @param {string} screenId - The ID of the screen to show
  */
 function showScreen(screenId) {
-  // Hide all screens
   document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');
   });
   
-  // Show target screen
   const targetScreen = document.getElementById(screenId);
   if (targetScreen) {
     targetScreen.classList.add('active');
@@ -42,12 +48,8 @@ function showScreen(screenId) {
   }
 }
 
-// ---- GAME LOBBY FUNCTIONS ----
+// ---- UTILITY FUNCTIONS ----
 
-/**
- * Generate a random room code
- * @returns {string} 6-character room code
- */
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -57,20 +59,14 @@ function generateRoomCode() {
   return code;
 }
 
-/**
- * Update the game lobby display
- * @param {Array} players - List of player names
- */
 function updateGameLobby(players) {
   const playersList = document.getElementById('players-joined');
   const playerCount = document.getElementById('player-count');
   const statusText = document.getElementById('status-text');
   const startBtn = document.getElementById('start-game-btn');
   
-  // Update player count
   playerCount.textContent = players.length;
   
-  // Clear and repopulate players
   playersList.innerHTML = '';
   players.forEach(player => {
     const playerDiv = document.createElement('div');
@@ -82,7 +78,6 @@ function updateGameLobby(players) {
     playersList.appendChild(playerDiv);
   });
   
-  // Enable/disable start button and update status
   if (players.length >= 6) {
     startBtn.disabled = false;
     statusText.textContent = 'Ready to start!';
@@ -94,9 +89,61 @@ function updateGameLobby(players) {
   }
 }
 
-// ---- EVENT LISTENERS ----
+// ---- BIDDING FUNCTIONS ----
 
-// Create Room button - navigate to game lobby
+/**
+ * Initialize bidding screen with mock bid data
+ */
+function initializeBidding() {
+  // Reset bid
+  gameState.currentBid = 60;
+  bidInput.value = gameState.currentBid;
+  
+  // Mock other players' bids
+  gameState.allBids = {
+    'Alice': 150,
+    'Bob': null,  // Passed
+    'Charlie': 120,
+    'Diana': null, // Hasn't bid yet
+  };
+  
+  // Update bids display
+  updateBidsDisplay();
+  
+  console.log('Bidding initialized');
+}
+
+/**
+ * Update the current bids list display
+ */
+function updateBidsDisplay() {
+  const bidsList = document.getElementById('bids-list');
+  bidsList.innerHTML = '';
+  
+  Object.entries(gameState.allBids).forEach(([player, bid]) => {
+    const bidItem = document.createElement('div');
+    bidItem.className = 'bid-item';
+    
+    const bidAmount = bid === null ? 'Passed' : bid.toString();
+    const bidColor = bid === null ? 'opacity: 0.7;' : '';
+    
+    bidItem.innerHTML = `
+      <span class="player-name">${player}</span>
+      <span class="bid-amount" style="${bidColor}">${bidAmount}</span>
+    `;
+    bidsList.appendChild(bidItem);
+  });
+}
+
+/**
+ * Update bid display
+ */
+function updateBidDisplay() {
+  bidInput.value = gameState.currentBid;
+}
+
+// ---- EVENT LISTENERS: LOBBY ----
+
 createRoomBtn.addEventListener('click', () => {
   const name = playerNameInput.value.trim();
   
@@ -107,21 +154,14 @@ createRoomBtn.addEventListener('click', () => {
   
   gameState.playerName = name;
   gameState.roomCode = generateRoomCode();
-  gameState.players = [name]; // Add current player
+  gameState.players = [name];
   
-  console.log('Created room:', gameState.roomCode, 'as:', gameState.playerName);
-  
-  // Display room code
   document.getElementById('room-code-display').textContent = gameState.roomCode;
-  
-  // Update lobby with players
   updateGameLobby(gameState.players);
   
-  // Show game lobby
   showScreen('lobby_wait-screen');
 });
 
-// Join Room button - navigate to room selection
 joinRoomBtn.addEventListener('click', () => {
   const name = playerNameInput.value.trim();
   
@@ -131,17 +171,13 @@ joinRoomBtn.addEventListener('click', () => {
   }
   
   gameState.playerName = name;
-  console.log('Navigating to room selection as:', gameState.playerName);
   showScreen('room_select-screen');
 });
 
-// Back to Lobby button
 backToLobbyBtn.addEventListener('click', () => {
-  console.log('Returning to lobby');
   showScreen('lobby-screen');
 });
 
-// Join with Room Code button
 joinWithCodeBtn.addEventListener('click', () => {
   const roomCode = roomCodeInput.value.trim().toUpperCase();
   
@@ -156,50 +192,73 @@ joinWithCodeBtn.addEventListener('click', () => {
   }
   
   gameState.roomCode = roomCode;
-  
-  // Simulate joining a room with some players
   gameState.players = [gameState.playerName, ...mockPlayers.slice(0, 4)];
   
-  console.log('Joined room:', roomCode, 'as:', gameState.playerName);
-  console.log('Current players:', gameState.players);
-  
-  // Display room code
   document.getElementById('room-code-display').textContent = gameState.roomCode;
-  
-  // Update lobby with players
   updateGameLobby(gameState.players);
   
-  // Show game lobby
   showScreen('lobby_wait-screen');
 });
 
-// Start Game button
-startGameBtn.addEventListener('click', () => {
-  console.log('Starting game with players:', gameState.players);
-  alert('Game starting with ' + gameState.players.length + ' players!');
-  // In next steps, this will navigate to Bidding screen
-});
-
-// Leave Room button
 leaveRoomBtn.addEventListener('click', () => {
-  console.log('Leaving room:', gameState.roomCode);
   gameState.roomCode = '';
   gameState.players = [];
   showScreen('lobby-screen');
 });
 
-// Allow Enter key in player name input
 playerNameInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     createRoomBtn.click();
   }
 });
 
-// Allow Enter key in room code input
 roomCodeInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     joinWithCodeBtn.click();
   }
 });
 
-console.log('Game initialized - Step 3: Game Lobby');
+// ---- EVENT LISTENERS: GAME LOBBY ----
+
+startGameBtn.addEventListener('click', () => {
+  console.log('Starting game with players:', gameState.players);
+  
+  // Initialize bidding and show bidding screen
+  initializeBidding();
+  showScreen('bidding-screen');
+});
+
+// ---- EVENT LISTENERS: BIDDING ----
+
+bidMinusBtn.addEventListener('click', () => {
+  gameState.currentBid = Math.max(30, gameState.currentBid - 5);
+  updateBidDisplay();
+});
+
+bidPlusBtn.addEventListener('click', () => {
+  gameState.currentBid = Math.min(250, gameState.currentBid + 5);
+  updateBidDisplay();
+});
+
+submitBidBtn.addEventListener('click', () => {
+  console.log('Bid submitted:', gameState.currentBid, 'by:', gameState.playerName);
+  alert(`Bid of ${gameState.currentBid} submitted!`);
+  // In next steps, will navigate to team selection
+});
+
+passBidBtn.addEventListener('click', () => {
+  console.log('Player passed:', gameState.playerName);
+  gameState.allBids[gameState.playerName] = null;
+  updateBidsDisplay();
+  alert('You passed the bid');
+  // In next steps, will navigate to next player or end bidding
+});
+
+// Allow Enter key in bid actions
+document.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter' && document.getElementById('bidding-screen').classList.contains('active')) {
+    submitBidBtn.click();
+  }
+});
+
+console.log('Game initialized - Step 4: Bidding Screen');
