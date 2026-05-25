@@ -901,16 +901,21 @@ input {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(196, 30, 58, 0.2);
   animation: fadeIn 0.5s ease 0.1s both;
+  /* Prevent the table from being squeezed as siblings grow with played cards. */
+  min-height: 420px;
 }
 
 .game-table {
-  width: 100%;
-  height: 100%;
+  /* Width/height fixed in absolute pixels so layout doesn't depend on
+     how many cards are currently on the table. */
+  width: 500px;
+  height: 400px;
   position: relative;
   background-image: url('table.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
+  flex-shrink: 0;     /* never shrink */
 }
 
 /* Player positions on circular table */
@@ -1366,4 +1371,36 @@ input {
 .card.playable:hover .card-img {
   transform: translateY(-8px);
   transition: transform 0.2s ease;
+}
+/* ─── Bidding-screen hand reference (and pick-team hand ref) ─── */
+.bidder-hand-ref,
+#bidding-hand-reference {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: flex-end;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(196, 30, 58, 0.2);
+}
+.bidder-hand-ref h4,
+#bidding-hand-reference h4 {
+  flex-basis: 100%;
+  text-align: center;
+  color: var(--accent-color);
+  margin: 0 0 0.5rem 0;
+}
+.bidder-hand-ref .card-img,
+#bidding-hand-reference .card-img {
+  width: 60px;
+  height: auto;
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+}
+.bidder-hand-ref .card-img:hover,
+#bidding-hand-reference .card-img:hover {
+  transform: translateY(-6px);
 }
