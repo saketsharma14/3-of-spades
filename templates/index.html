@@ -96,6 +96,24 @@
         </div>
       </div>
 
+      <!-- NEW: Target score selector (host edits, everyone sees) -->
+      <div class="target-score-section" style="margin: 1rem 0; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center;">
+        <h3>Target Score to Win</h3>
+        <p style="font-size: 0.9rem; opacity: 0.75; margin-top: 0.25rem;">
+          First player to reach this score wins the game. Set to 0 for free play.
+        </p>
+        <div style="margin-top: 0.75rem;">
+          <input
+            type="number"
+            id="target-score-input"
+            min="0" max="9999" step="50" value="500"
+            style="width: 120px; padding: 0.5rem; font-size: 1.1rem; text-align: center;"
+          >
+          <button id="set-target-btn" class="btn btn-secondary" style="margin-left: 0.5rem;">Set</button>
+        </div>
+        <p style="margin-top: 0.5rem;">Current target: <strong id="current-target-display">none</strong></p>
+      </div>
+
       <div class="lobby-actions">
         <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
         <button id="leave-room-btn" class="btn btn-secondary">Leave Room</button>
@@ -191,6 +209,10 @@
           <span class="trump-badge">Trump: <span id="trump-display">-</span></span>
         </div>
         <div id="score-display" class="score-display"></div>
+        <!-- NEW: Vote-to-end button -->
+        <button id="vote-end-btn" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+          End Game? (<span id="vote-end-count">0</span>/<span id="vote-end-needed">0</span>)
+        </button>
       </div>
 
       <!-- Teams display -->
@@ -266,7 +288,43 @@
       <!-- Round Actions -->
       <div class="result-actions">
         <button id="next-round-btn" class="btn btn-primary">Next Round</button>
+        <button id="vote-end-btn-result" class="btn btn-secondary">Vote to End Game (<span id="vote-end-count-result">0</span>/<span id="vote-end-needed-result">0</span>)</button>
         <button id="exit-game-btn" class="btn btn-secondary">Exit Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW: GAME OVER SCREEN ────────────────────────────────────────────── -->
+  <div id="game_over-screen" class="screen">
+    <div class="round-result-container" style="text-align: center;">
+      <div class="result-header">
+        <h1 style="font-size: 3rem; color: gold; margin-bottom: 0.5rem;">🏆 Game Over 🏆</h1>
+        <p id="game-over-reason" class="result-subtitle"></p>
+      </div>
+
+      <!-- Winner(s) -->
+      <div class="team-result" style="background: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,215,0,0.05)); padding: 2rem; border-radius: 12px; border: 2px solid gold;">
+        <h2 style="color: gold;">Winner<span id="winner-plural"></span></h2>
+        <div id="game-over-winners" class="team-members" style="font-size: 1.5rem; font-weight: bold; margin: 1rem 0;"></div>
+        <p>Final score: <span id="game-over-winning-score" style="font-size: 1.3rem; font-weight: bold; color: gold;">0</span></p>
+      </div>
+
+      <!-- Full final standings -->
+      <div class="overall-standings" style="margin-top: 2rem;">
+        <h3>Final Standings</h3>
+        <div id="game-over-standings" class="standings-list"></div>
+      </div>
+
+      <div class="result-actions" style="margin-top: 2rem;">
+        <!-- Owner sees this; others see a waiting message -->
+        <button id="game-over-back-to-lobby-btn" class="btn btn-primary" style="display:none">
+          Back to Lobby (change settings)
+        </button>
+        <p id="game-over-wait-msg" style="display:none; color: var(--text-light); opacity: 0.85;">
+          Waiting for host to return everyone to the lobby...
+        </p>
+        <!-- Anyone can leave the room entirely -->
+        <button id="game-over-leave-btn" class="btn btn-secondary">Leave Room</button>
       </div>
     </div>
   </div>
