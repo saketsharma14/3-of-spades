@@ -88,6 +88,14 @@ socket.on("left_room", () => {
 
 socket.on("state_update", (state) => {
   publicState = state;
+
+  // Reset bid amount at start of each new round
+  if (state.phase === "bidding" && state.trick_number === 0 && state.highest_bid === 0) {
+    currentBidAmount = 60;
+    const bidInput = document.getElementById("bid-input");
+    if (bidInput) bidInput.value = currentBidAmount;
+  }
+
   renderPublicState(state);
 });
 
@@ -139,7 +147,21 @@ function renderPublicState(state) {
       renderGameplay(state);
       break;
     case "round_end":
+      // renderRoundResult is called from the round_end socket event,
+      // but if state_update arrives first (e.g. on reconnect) render from publicState
       showScreen("round_result-screen");
+      if (state.team1 && state.team1.length > 0) {
+        renderRoundResult({
+          team1:        state.team1,
+          team2:        state.team2,
+          team1_points: state.team1_points,
+          team2_points: state.team2_points,
+          team1_target: state.highest_bid,
+          team2_target: 250 - state.highest_bid,
+          winner:       state.team1_points >= state.highest_bid ? "team1" : "team2",
+          scores:       state.scores
+        });
+      }
       break;
   }
 }
@@ -203,10 +225,12 @@ function renderBidding(state) {
     });
   }
 
-  // Hide bid controls once player has bid or passed
-  const hasBid      = state.has_bid.includes(myName);
-  const bidControls = document.getElementById("bid-controls");
-  if (bidControls) bidControls.style.display = hasBid ? "none" : "flex";
+  // Auto-update bid amount if current value is too low
+  if (currentBidAmount <= state.highest_bid) {
+    currentBidAmount = state.highest_bid + 5;
+    const bidInput = document.getElementById("bid-input");
+    if (bidInput) bidInput.value = currentBidAmount;
+  }
 
   // Close bidding button — only for highest bidder
   const closeBtn = document.getElementById("close-bidding-btn");
@@ -215,18 +239,26 @@ function renderBidding(state) {
       myName === state.highest_bidder && !state.bidding_closed ? "block" : "none";
   }
 
+  // Hide Pass button for highest bidder or players who already passed
+  const passBtn = document.getElementById("pass-bid-btn");
+  if (passBtn) {
+    const alreadyPassed   = (state.has_passed || []).includes(myName);
+    const isHighestBidder = myName === state.highest_bidder;
+    passBtn.style.display = (isHighestBidder || alreadyPassed) ? "none" : "inline-block";
+  }
+
   // Bids list
   const bidsList = document.getElementById("bids-list");
   bidsList.innerHTML = "";
   state.players.forEach(player => {
     const div           = document.createElement("div");
     div.className       = "bid-item";
-    const hasBidAlready = state.has_bid.includes(player);
-    const isHighest     = player === state.highest_bidder;
+    const hasPassed = (state.has_passed || []).includes(player);
+    const isHighest = player === state.highest_bidder;
     div.innerHTML = `
       <span class="player-name">${escapeHtml(player)}</span>
       <span class="bid-amount ${isHighest ? "highest" : ""}">
-        ${isHighest ? state.highest_bid : hasBidAlready ? "Passed" : "..."}
+        ${isHighest ? state.highest_bid : hasPassed ? "Passed" : "..."}
       </span>
     `;
     bidsList.appendChild(div);
@@ -236,16 +268,17 @@ function renderBidding(state) {
 // ─── RENDER: PICK TEAM ───────────────────────────────────────────────────────
 
 function renderPickTeam(state) {
-  showScreen("pick_team-screen");
+  showScreen("pick_team-screen");   // ← move this to the TOP before any returns
   document.getElementById("winning-bid").textContent = state.highest_bid;
 
   const isBidder      = myName === state.highest_bidder;
   const pickerSection = document.getElementById("cards-to-select");
   const waitMsg       = document.getElementById("pick-team-wait-msg");
   const trumpSection  = document.querySelector(".trump-section");
+  const teamSection   = document.querySelector(".team-section");
 
-  // Hide trump section during pick_team phase
   if (trumpSection) trumpSection.style.display = "none";
+  if (teamSection)  teamSection.style.display  = "block";
 
   if (!isBidder) {
     if (pickerSection) pickerSection.style.display = "none";
@@ -447,6 +480,40 @@ function renderRoundResult(result) {
   showScreen("round_result-screen");
   document.getElementById("result-round").textContent = publicState.round_number || "";
 
+  // SPECIAL CASE: everyone passed during bidding — no round was played
+  if (result.all_passed) {
+    document.getElementById("team1-members").innerHTML =
+      `<div class="team-member-item">—</div>`;
+    document.getElementById("team2-members").innerHTML =
+      `<div class="team-member-item">—</div>`;
+    document.getElementById("team1-score").textContent = 0;
+    document.getElementById("team2-score").textContent = 0;
+
+    const t1Result = document.getElementById("team1-result");
+    const t2Result = document.getElementById("team2-result");
+    t1Result.className   = "team-outcome";
+    t2Result.className   = "team-outcome";
+    t1Result.textContent = result.message || "Everyone passed — no round played.";
+    t2Result.textContent = "Scores unchanged.";
+
+    // Standings still reflect cumulative scores
+    const standingsList = document.getElementById("standings-list");
+    standingsList.innerHTML = "";
+    Object.entries(result.scores)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([player, score], idx) => {
+        const div     = document.createElement("div");
+        div.className = "standing-item" + (idx === 0 ? " top" : "");
+        div.innerHTML = `
+          <span class="standing-rank">#${idx + 1}</span>
+          <span class="standing-name">${escapeHtml(player)}</span>
+          <span class="standing-score">${score} pts</span>
+        `;
+        standingsList.appendChild(div);
+      });
+    return;
+  }
+
   // Team 1 — revealed here for the first time
   document.getElementById("team1-members").innerHTML =
     result.team1.map(p => `<div class="team-member-item">${escapeHtml(p)}</div>`).join("");
@@ -592,7 +659,7 @@ document.getElementById("leave-room-btn").addEventListener("click", () => {
 let currentBidAmount = 60;
 
 document.getElementById("bid-minus").addEventListener("click", () => {
-  currentBidAmount = Math.max((publicState.highest_bid || 0) + 1, currentBidAmount - 5);
+  currentBidAmount = Math.max((publicState.highest_bid || 0) + 5, currentBidAmount - 5);
   document.getElementById("bid-input").value = currentBidAmount;
 });
 

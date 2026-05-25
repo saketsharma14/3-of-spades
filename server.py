@@ -143,9 +143,16 @@ def on_pass():
     if not room:
         return
     name = room.sid_to_name.get(request.sid)
-    success, error = room.pass_bid(name)
+    success, info = room.pass_bid(name)
     if not success:
-        return emit_error(error)
+        return emit_error(info)
+
+    # If everyone passed without bidding, end the round (no scoring)
+    # and show the round-result screen so the host can start the next round.
+    if info == "all_passed":
+        result = room.round_result()
+        socketio.emit("round_end", result, to=room.room_code)
+
     broadcast_state(room)
 
 @socketio.on("close_bidding")
