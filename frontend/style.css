@@ -1,5 +1,5 @@
 /* ========================================
-   3 OF SPADES - STEP 2: CSS
+   3 OF SPADES - STEP 3: CSS
    ======================================== */
 
 /* ---- CSS VARIABLES ---- */
@@ -9,6 +9,7 @@
   --accent-color: #ffd700;         /* Gold highlight */
   --text-light: #ffffff;
   --text-dark: #1a1a1a;
+  --success-color: #4caf50;
   
   --space-sm: 1rem;
   --space-md: 1.5rem;
@@ -99,6 +100,7 @@ input {
   transition: opacity var(--transition);
   z-index: 1;
   padding: var(--space-lg);
+  overflow-y: auto;
 }
 
 .screen.active {
@@ -107,6 +109,12 @@ input {
   z-index: 10;
   justify-content: center;
   align-items: center;
+}
+
+/* For scrollable content screens */
+#lobby_wait-screen.active {
+  align-items: flex-start;
+  padding-top: var(--space-xl);
 }
 
 /* ========================================
@@ -337,6 +345,106 @@ input {
   box-shadow: 0 0 12px rgba(196, 30, 58, 0.3);
 }
 
+/* ========================================
+   GAME LOBBY SCREEN (NEW)
+   ======================================== */
+
+#lobby_wait-screen {
+  background: transparent;
+}
+
+.game-lobby-container {
+  max-width: 900px;
+  width: 100%;
+}
+
+.lobby-info {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+.lobby-info h2 {
+  color: var(--text-light);
+  margin-bottom: var(--space-sm);
+}
+
+.player-count {
+  color: var(--accent-color);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.players-list {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(196, 30, 58, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  animation: fadeIn 0.5s ease 0.1s both;
+}
+
+.players-list h3 {
+  color: var(--accent-color);
+  margin-bottom: var(--space-md);
+}
+
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.player-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  padding: var(--space-md);
+  text-align: center;
+  color: var(--text-light);
+  border: 1px solid rgba(196, 30, 58, 0.2);
+  animation: fadeInUp 0.5s ease 0.2s both;
+}
+
+.player-item.ready {
+  border-color: var(--success-color);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.player-avatar {
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
+}
+
+.player-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.lobby-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  animation: fadeIn 0.5s ease 0.3s both;
+}
+
+.status-message {
+  text-align: center;
+  color: var(--accent-color);
+  animation: fadeIn 0.5s ease 0.4s both;
+}
+
+.status-message p {
+  font-size: 1.1rem;
+  animation: pulse 2s infinite;
+}
+
 /* Buttons */
 .btn {
   padding: var(--space-md) var(--space-lg);
@@ -355,10 +463,15 @@ input {
   border: 2px solid var(--primary-color);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: transparent;
   box-shadow: 0 0 20px rgba(196, 30, 58, 0.6);
   transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
@@ -426,6 +539,15 @@ input {
   }
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 /* ========================================
    RESPONSIVE DESIGN
    ======================================== */
@@ -445,6 +567,14 @@ input {
 
   .room-actions {
     flex-direction: column;
+  }
+
+  .players-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lobby-actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -468,5 +598,9 @@ input {
   .btn {
     padding: var(--space-md);
     font-size: 0.9rem;
+  }
+
+  .player-count {
+    font-size: 1.1rem;
   }
 }
