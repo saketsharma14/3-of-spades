@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-<link rel="stylesheet" href="/static/style.css">
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-</head>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3 of Spades - Card Game</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
   <!-- LOBBY SCREEN -->
@@ -68,21 +67,7 @@
       </div>
 
       <div id="rooms-list" class="rooms-list">
-        <div class="room-card">
-          <h4>ROOM1</h4>
-          <p>Players: 3/6</p>
-          <p>Status: waiting</p>
-        </div>
-        <div class="room-card">
-          <h4>ROOM2</h4>
-          <p>Players: 5/6</p>
-          <p>Status: waiting</p>
-        </div>
-        <div class="room-card">
-          <h4>ROOM3</h4>
-          <p>Players: 2/6</p>
-          <p>Status: waiting</p>
-        </div>
+        <!-- Populated by JavaScript -->
       </div>
 
       <div class="room-actions">
@@ -101,8 +86,8 @@
   <div id="lobby_wait-screen" class="screen">
     <div class="game-lobby-container">
       <div class="lobby-info">
-        <h2>Room: <span id="room-code-display">ABC123</span></h2>
-        <p class="player-count"><span id="player-count">0</span>/6 Players</p>
+        <h2>Room: <span id="room-code-display">------</span></h2>
+        <p class="player-count"><span id="player-count">0</span>/8 Players</p>
       </div>
 
       <div class="players-list">
@@ -130,7 +115,7 @@
         <p class="round-info">Round <span id="round-number">1</span></p>
       </div>
 
-      <div class="bid-display">
+      <div id="bid-controls" class="bid-display">
         <h3>Your Bid</h3>
         <div class="bid-amount">
           <button id="bid-minus" class="bid-btn">−</button>
@@ -149,6 +134,7 @@
       <div class="bid-actions">
         <button id="submit-bid-btn" class="btn btn-primary">Submit Bid</button>
         <button id="pass-bid-btn" class="btn btn-secondary">Pass</button>
+        <button id="close-bidding-btn" class="btn btn-secondary" style="display:none">Close Bidding</button>
       </div>
 
       <div class="current-bids">
@@ -159,20 +145,24 @@
     </div>
   </div>
 
-  <!-- TEAM SELECTION SCREEN -->
+  <!-- TEAM SELECTION + TRUMP SCREEN -->
   <div id="pick_team-screen" class="screen">
     <div class="team-selection-container">
       <div class="team-header">
-        <h2>You Won the Bid!</h2>
-        <p class="bid-info">Your Bid: <span id="winning-bid">0</span> points</p>
+        <h2>Team Selection</h2>
+        <p class="bid-info">Winning Bid: <span id="winning-bid">0</span> points</p>
       </div>
+
+      <!-- Wait message for non-bidders -->
+      <p id="pick-team-wait-msg" class="wait-msg"></p>
 
       <div class="team-section">
         <h3>Pick Your Teammates</h3>
-        <p class="team-instructions">Select 2 cards from the deck. Players holding these cards are your teammates.</p>
+        <p class="team-instructions">Select cards from the deck. Players holding these cards are your teammates.</p>
         <div id="cards-to-select" class="cards-selection-grid">
+          <!-- Populated by JavaScript -->
         </div>
-        <p id="cards-selected-info" class="cards-info">Selected: 0/2 cards</p>
+        <p id="cards-selected-info" class="cards-info">Selected: 0 cards</p>
       </div>
 
       <div class="trump-section">
@@ -186,31 +176,35 @@
         <p id="trump-selected-info" class="trump-info">Trump: None selected</p>
       </div>
 
-      <div class="team-actions">
-        <button id="confirm-team-btn" class="btn btn-primary" disabled>Confirm</button>
-      </div>
     </div>
   </div>
 
   <!-- GAMEPLAY SCREEN -->
   <div id="play-screen" class="screen">
     <div class="game-container">
+
       <!-- Top Section: Game Info -->
       <div class="game-header-bar">
         <div class="game-info">
           <span class="round-badge">Round <span id="current-round">1</span></span>
           <span class="trump-badge">Trump: <span id="trump-display">-</span></span>
         </div>
-        <div class="game-controls">
-          <button id="quit-game-btn" class="btn-icon">⚙️</button>
-        </div>
+        <div id="score-display" class="score-display"></div>
       </div>
+
+      <!-- Teams display -->
+      <div id="teams-display" class="teams-display"></div>
+
+      <!-- Whose turn -->
+      <div id="whose-turn-display" class="whose-turn"></div>
+
+      <!-- Current trick -->
+      <div id="current-trick-display" class="current-trick"></div>
 
       <!-- Middle Section: Table with Players -->
       <div class="game-table-section">
         <div id="game-table" class="game-table">
-          <!-- Circular table image (table.png) appears as background -->
-          <!-- Player positions will be rendered around it by JavaScript -->
+          <!-- Player positions rendered by JavaScript -->
         </div>
       </div>
 
@@ -221,13 +215,14 @@
           <p id="valid-cards-info" class="valid-cards-info">Cards: 0</p>
         </div>
         <div id="player-hand" class="player-hand">
-          <!-- Player cards will be populated by JavaScript -->
+          <!-- Cards populated by JavaScript -->
         </div>
       </div>
+
     </div>
   </div>
 
-  <!-- ROUND RESULT SCREEN (NEW) -->
+  <!-- ROUND RESULT SCREEN -->
   <div id="round_result-screen" class="screen">
     <div class="round-result-container">
       <div class="result-header">
@@ -239,42 +234,32 @@
         <!-- Team 1 Results -->
         <div class="team-result">
           <h3 class="team-name">Team 1</h3>
-          <div id="team1-members" class="team-members">
-            <!-- Players will be populated by JavaScript -->
-          </div>
+          <div id="team1-members" class="team-members"></div>
           <div class="team-score">
             <span class="score-label">Points:</span>
-            <span class="score-value" id="team1-score">120</span>
+            <span class="score-value" id="team1-score">0</span>
             <span class="score-goal">/250</span>
           </div>
-          <div id="team1-result" class="team-outcome">
-            <!-- Win/Loss message -->
-          </div>
+          <div id="team1-result" class="team-outcome"></div>
         </div>
 
         <!-- Team 2 Results -->
         <div class="team-result">
           <h3 class="team-name">Team 2</h3>
-          <div id="team2-members" class="team-members">
-            <!-- Players will be populated by JavaScript -->
-          </div>
+          <div id="team2-members" class="team-members"></div>
           <div class="team-score">
             <span class="score-label">Points:</span>
-            <span class="score-value" id="team2-score">130</span>
+            <span class="score-value" id="team2-score">0</span>
             <span class="score-goal">/250</span>
           </div>
-          <div id="team2-result" class="team-outcome">
-            <!-- Win/Loss message -->
-          </div>
+          <div id="team2-result" class="team-outcome"></div>
         </div>
       </div>
 
       <!-- Overall Standings -->
       <div class="overall-standings">
         <h3>Overall Standings</h3>
-        <div id="standings-list" class="standings-list">
-          <!-- Player standings will be populated by JavaScript -->
-        </div>
+        <div id="standings-list" class="standings-list"></div>
       </div>
 
       <!-- Round Actions -->

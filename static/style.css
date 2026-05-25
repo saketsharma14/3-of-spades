@@ -1352,3 +1352,18 @@ input {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.card-img {
+  width: 60px;
+  height: auto;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.trick-img {
+  width: 50px;
+}
+
+.card.playable:hover .card-img {
+  transform: translateY(-8px);
+  transition: transform 0.2s ease;
+}
