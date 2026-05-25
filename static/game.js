@@ -355,27 +355,6 @@ function renderGameplay(state) {
   document.getElementById("current-round").textContent = state.round_number;
   document.getElementById("trump-display").textContent = state.trump_suit + "s";
 
-  // Current trick — show card images
-  const trickEl = document.getElementById("current-trick-display");
-  if (trickEl) {
-    trickEl.innerHTML = "";
-    if (state.current_trick.length === 0) {
-      trickEl.innerHTML = "<p class='no-cards'>No cards played yet</p>";
-    } else {
-      state.current_trick.forEach(entry => {
-        const div     = document.createElement("div");
-        div.className = "trick-card";
-        div.innerHTML = `
-          <div class="trick-player">${escapeHtml(entry.player)}</div>
-          <img src="${getCardImage(entry.card.display)}"
-               alt="${entry.card.display}"
-               class="card-img trick-img">
-        `;
-        trickEl.appendChild(div);
-      });
-    }
-  }
-
   // Whose turn
   const turnEl = document.getElementById("whose-turn-display");
   if (turnEl) {
