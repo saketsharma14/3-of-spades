@@ -1,6 +1,3 @@
-/* ========================================
-   3 OF SPADES - STEP 5: CSS
-   ======================================== */
 
 /* ---- CSS VARIABLES ---- */
 :root {
@@ -42,7 +39,7 @@ html, body {
 
 body {
   position: relative;
-  background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("bg.jpeg");
+  background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("new_bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -150,7 +147,7 @@ input {
 
 .spade-icon {
   font-size: 4rem;
-  color: var(--primary-color);
+  color: black;
   margin: var(--space-md) 0;
   text-shadow: 0 2px 8px rgba(196, 30, 58, 0.4);
 }
