@@ -90,6 +90,12 @@ class GameState:
         self.trick_history       = []
         self.pending_trick_winner = None
 
+        # Mid-round leaver handling: if someone leaves while cards are being
+        # played, we mark them here, auto-play their remaining turns, and
+        # end the game cleanly when the round finishes.
+        self.left_players          = set()
+        self.end_game_after_round  = False
+
         # Game-over tracking (used when a player leaves and forces a stop)
         self.game_over      = False
         self.winners        = []   # list (1+ names if tie)
@@ -131,27 +137,44 @@ class GameState:
                 self.owner = self.players[0]
             return name
 
-        # NEW: if someone leaves mid-game, the game can't continue (player
-        # counts of 5 or 7 break the deal). End the game gracefully — remaining
-        # players are routed to the game-over screen with current standings.
-        # Exception: if we're already in game_over, just clean up.
-        if self.phase != self.PHASE_GAME_OVER:
+        # If we're already in game_over, just clean up.
+        if self.phase == self.PHASE_GAME_OVER:
             if name in self.players:
                 self.players.remove(name)
             self.hands.pop(name, None)
             self.scores.pop(name, None)
             if name == self.owner and self.players:
                 self.owner = self.players[0]
-            self.end_reason = f"{name} left the room"
-            self._finalize_game()
             return name
 
+        # NEW: if they leave during the PLAYING phase, don't end the game
+        # right away. Mark them as "left" (their seat stays so trick counts
+        # still work), flip end_game_after_round, and let the server auto-play
+        # their remaining turns. When the round finishes naturally, the game
+        # ends and shows the final leaderboard.
+        if self.phase == self.PHASE_PLAYING:
+            self.left_players.add(name)
+            self.end_game_after_round = True
+            self.end_reason = f"{name} left the room"
+            # Hand off ownership if the host left so the round-end screen
+            # still has a valid owner (game_over has no "Next Round" anyway).
+            if name == self.owner:
+                remaining = [p for p in self.players if p not in self.left_players]
+                if remaining:
+                    self.owner = remaining[0]
+            return name
+
+        # Other mid-game phases (BIDDING / PICK_TEAM / TRUMP) can't continue
+        # with a missing player — no cards have been played, no "round" to
+        # finish — so end the game immediately.
         if name in self.players:
             self.players.remove(name)
         self.hands.pop(name, None)
         self.scores.pop(name, None)
         if name == self.owner and self.players:
             self.owner = self.players[0]
+        self.end_reason = f"{name} left the room"
+        self._finalize_game()
         return name
 
     def can_start(self):
@@ -232,6 +255,8 @@ class GameState:
         self.team2_points   = 0
         self.trick_history       = []
         self.pending_trick_winner = None
+        self.left_players          = set()
+        self.end_game_after_round  = False
 
         deck = build_deck()
         random.shuffle(deck)
@@ -484,6 +509,20 @@ class GameState:
         if self.trick_number == self.total_tricks:
             self._end_round()
 
+    def auto_play_for_leaver(self, name):
+        """Play the lowest-value valid card from a left player's hand.
+        Used by the server to keep the round moving when a player has left."""
+        if self.phase != self.PHASE_PLAYING:
+            return False, "Not in playing phase."
+        if self.whose_turn() != name:
+            return False, "Not their turn."
+        valid = self.get_valid_cards(name)
+        if not valid:
+            return False, "No valid cards."
+        # Lowest-points then lowest-rank — basic "dump junk" bot strategy
+        card = min(valid, key=lambda c: (c.points, c.number))
+        return self.play_card(name, str(card))
+
     def _get_trick_winner(self):
         winning = self.current_trick[0]
         for entry in self.current_trick[1:]:
@@ -516,6 +555,11 @@ class GameState:
         else:
             for p in self.team2:
                 self.scores[p] += self.highest_bid
+
+        # If someone left mid-round, finish the game here instead of waiting
+        # for the host to click "Next Round".
+        if self.end_game_after_round:
+            self._finalize_game()
 
     def round_result(self):
         if self.all_passed_round:
@@ -572,6 +616,8 @@ class GameState:
             "team2_points":     self.team2_points,
             "trick_history":         self.trick_history,
             "pending_trick_winner":  self.pending_trick_winner,
+            "left_players":          list(self.left_players),
+            "end_game_after_round":  self.end_game_after_round,
             "scores":           self.scores,
             "chosen_cards":     [c.to_dict() for c in self.chosen_cards],
             "teammates_needed": self.teammates_needed() if self.phase == self.PHASE_PICK_TEAM else 0,

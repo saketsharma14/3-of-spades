@@ -581,6 +581,11 @@ function renderCircularTable(state) {
     if (state.pending_trick_winner === player) {
       pos.classList.add("trick-winner");
     }
+    // Mark seats of players who left mid-round (auto-played by server)
+    const hasLeft = (state.left_players || []).includes(player);
+    if (hasLeft) {
+      pos.classList.add("player-left");
+    }
     pos.style.left = `calc(50% + ${x}px - 40px)`;
     pos.style.top  = `calc(50% + ${y}px - 50px)`;
 
@@ -592,7 +597,7 @@ function renderCircularTable(state) {
 
     pos.innerHTML = `
       <div class="player-card ${isActive ? "active" : ""} ${isMe ? "current-player" : ""}">
-        <div class="player-name">${escapeHtml(player)}${isMe ? " (You)" : ""}</div>
+        <div class="player-name">${escapeHtml(player)}${isMe ? " (You)" : ""}${hasLeft ? " (left)" : ""}</div>
         ${trickCard
           ? `<img src="${getCardImage(trickCard.card.display)}"
                   alt="${trickCard.card.display}"

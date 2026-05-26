@@ -27,6 +27,44 @@ def get_room_or_error():
         emit_error("You are not in a room.")
     return room
 
+def emit_game_over(room):
+    socketio.emit("game_over", {
+        "winners":    room.winners,
+        "scores":     room.scores,
+        "end_reason": getattr(room, "end_reason", None),
+    }, to=room.room_code)
+
+def process_auto_plays(room):
+    """If the current turn belongs to a player who left the table, play their
+    lowest-value valid card for them and keep going until either a present
+    player's turn comes up or the round finishes. Handles the 5s trick reveal
+    pause in the same way as a normal play."""
+    safety = 50  # max plays in one call (one round can have up to 48 cards)
+    while safety > 0 and room.phase == GameState.PHASE_PLAYING:
+        # If a trick just completed, do the 5s reveal then commit
+        if room.pending_trick_winner:
+            broadcast_state(room)
+            socketio.sleep(5)
+            room.commit_pending_trick()
+            if room.phase == GameState.PHASE_ROUND_END:
+                socketio.emit("round_end", room.round_result(), to=room.room_code)
+            if room.game_over:
+                emit_game_over(room)
+                broadcast_state(room)
+                return
+            broadcast_state(room)
+            continue
+
+        next_turn = room.whose_turn()
+        if not next_turn or next_turn not in room.left_players:
+            return  # nothing to auto-play
+        ok, _ = room.auto_play_for_leaver(next_turn)
+        if not ok:
+            return
+        broadcast_state(room)
+        socketio.sleep(0.8)  # short delay so each auto-play is visible
+        safety -= 1
+
 # ─── PAGE ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -46,14 +84,13 @@ def on_disconnect():
         leave_room(room.room_code)
         socketio.emit("player_left", {"name": name, "new_owner": room.owner}, to=room.room_code)
         if not room.is_empty():
-            # NEW: if the disconnect ended the game, emit game_over too
             if room.game_over:
-                socketio.emit("game_over", {
-                    "winners":    room.winners,
-                    "scores":     room.scores,
-                    "end_reason": getattr(room, "end_reason", None),
-                }, to=room.room_code)
+                emit_game_over(room)
             broadcast_state(room)
+            # If they left mid-PLAYING, keep the round moving by auto-playing
+            # whatever turns now belong to absent players.
+            if room.phase == GameState.PHASE_PLAYING:
+                process_auto_plays(room)
     print(f"Disconnected: {request.sid}")
 
 # ─── ROOM MANAGEMENT ─────────────────────────────────────────────────────────
@@ -108,14 +145,11 @@ def on_leave_room():
         leave_room(room.room_code)
         socketio.emit("player_left", {"name": name, "new_owner": room.owner}, to=room.room_code)
         if not room.is_empty():
-            # NEW: if the leave ended the game, emit game_over too
             if room.game_over:
-                socketio.emit("game_over", {
-                    "winners":    room.winners,
-                    "scores":     room.scores,
-                    "end_reason": getattr(room, "end_reason", None),
-                }, to=room.room_code)
+                emit_game_over(room)
             broadcast_state(room)
+            if room.phase == GameState.PHASE_PLAYING:
+                process_auto_plays(room)
     emit("left_room", {})
 
 # ─── GAME START ──────────────────────────────────────────────────────────────
@@ -262,14 +296,15 @@ def on_play_card(data):
 
     if room.phase == GameState.PHASE_ROUND_END:
         socketio.emit("round_end", room.round_result(), to=room.room_code)
-    # If that round ended the game (e.g. player left), emit game_over
+    # If that round ended the game, emit game_over
     if room.game_over:
-        socketio.emit("game_over", {
-            "winners":    room.winners,
-            "scores":     room.scores,
-            "end_reason": getattr(room, "end_reason", None),
-        }, to=room.room_code)
+        emit_game_over(room)
     broadcast_state(room)
+
+    # If the next turn now belongs to a player who left, auto-play through
+    # them until a present player's turn comes up or the round ends.
+    if room.phase == GameState.PHASE_PLAYING and room.left_players:
+        process_auto_plays(room)
 
 # ─── NEXT ROUND ──────────────────────────────────────────────────────────────
 
