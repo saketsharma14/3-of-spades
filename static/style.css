@@ -1434,3 +1434,116 @@ input {
 .close-request-banner strong {
   color: gold;
 }
+
+/* ─── Trick Winners sidebar + winner highlight (5s reveal pause) ─────────── */
+.game-middle-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.trick-winners-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(196, 30, 58, 0.3);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  color: #eee;
+  overflow-y: auto;
+}
+
+.trick-winners-sidebar h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: var(--accent-color);
+  text-align: center;
+  border-bottom: 1px solid rgba(196, 30, 58, 0.4);
+  padding-bottom: 0.35rem;
+}
+
+.trick-winners-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.trick-winners-list li {
+  padding: 0.3rem 0.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.trick-winners-list li:last-child { border-bottom: none; }
+
+.trick-winners-list .trick-num {
+  color: #888;
+  font-weight: 600;
+}
+
+.trick-winners-list .trick-winner-name {
+  font-weight: 600;
+  color: gold;
+  text-align: right;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trick-winners-list .empty {
+  color: #777;
+  font-style: italic;
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.game-table-section {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* Winner highlight on the player seat during the 5s pause */
+.player-position.trick-winner .player-card {
+  box-shadow: 0 0 0 3px gold, 0 0 18px gold;
+  animation: trickWinnerPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes trickWinnerPulse {
+  from { box-shadow: 0 0 0 3px gold, 0 0 12px gold; }
+  to   { box-shadow: 0 0 0 3px gold, 0 0 22px gold; }
+}
+
+/* Centered banner showing "X wins the trick!" */
+.trick-winner-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.95), rgba(255, 170, 0, 0.95));
+  color: #1a1a1a;
+  padding: 0.6rem 1.4rem;
+  border-radius: 30px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  border: 2px solid #fff8c5;
+  z-index: 10;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Hide sidebar on small screens; trick winners can be checked at round end */
+@media (max-width: 700px) {
+  .game-middle-row { flex-direction: column; }
+  .trick-winners-sidebar {
+    width: 100%;
+    max-height: 110px;
+  }
+}

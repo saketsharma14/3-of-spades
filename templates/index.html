@@ -235,10 +235,17 @@
       <!-- Whose turn -->
       <div id="whose-turn-display" class="whose-turn"></div>
 
-      <!-- Middle Section: Table with Players -->
-      <div class="game-table-section">
-        <div id="game-table" class="game-table">
-          <!-- Player positions rendered by JavaScript -->
+      <!-- Middle Section: Trick Winners sidebar + Table -->
+      <div class="game-middle-row">
+        <aside class="trick-winners-sidebar">
+          <h4>Trick Winners</h4>
+          <ol id="trick-winners-list" class="trick-winners-list"></ol>
+        </aside>
+        <div class="game-table-section">
+          <div id="game-table" class="game-table">
+            <!-- Player positions rendered by JavaScript -->
+          </div>
+          <div id="trick-winner-banner" class="trick-winner-banner" style="display:none"></div>
         </div>
       </div>
 

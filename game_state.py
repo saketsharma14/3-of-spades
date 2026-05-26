@@ -86,6 +86,10 @@ class GameState:
         self.scores         = {owner_name: 0}
         self.round_number   = 0
 
+        # Trick winner history + pending-resolve state for 5s reveal pause
+        self.trick_history       = []
+        self.pending_trick_winner = None
+
         # Game-over tracking (used when a player leaves and forces a stop)
         self.game_over      = False
         self.winners        = []   # list (1+ names if tie)
@@ -189,6 +193,9 @@ class GameState:
         self.total_tricks   = 0
         self.team1_points   = 0
         self.team2_points   = 0
+        # Trick winner history + pending-resolve state for 5s reveal pause
+        self.trick_history       = []   # list of {"trick_number", "winner", "points"}
+        self.pending_trick_winner = None
         self.scores         = {p: 0 for p in self.players}
         self.round_number   = 0
         self.game_over      = False
@@ -223,6 +230,8 @@ class GameState:
         self.total_tricks   = 48 // self.player_count
         self.team1_points   = 0
         self.team2_points   = 0
+        self.trick_history       = []
+        self.pending_trick_winner = None
 
         deck = build_deck()
         random.shuffle(deck)
@@ -443,21 +452,35 @@ class GameState:
         if self.led_suit is None:
             self.led_suit = card.suit
         self.current_trick.append({"player": name, "card": card})
-        if len(self.current_trick) == len(self.players):   # use len(players)
-            self._resolve_trick()
+        # When the last card lands, compute the winner immediately so the
+        # frontend can highlight them, but DO NOT clear the trick or advance
+        # yet. The server will call commit_pending_trick() after a 5s pause.
+        if len(self.current_trick) == len(self.players):
+            self.pending_trick_winner = self._get_trick_winner()
         return True, None
 
-    def _resolve_trick(self):
-        winner    = self._get_trick_winner()
+    def commit_pending_trick(self):
+        """Finalize the trick that's currently being shown. Awards points,
+        records history, clears the table, advances to the next trick — and
+        ends the round if this was the last trick."""
+        if not self.pending_trick_winner:
+            return
+        winner    = self.pending_trick_winner
         trick_pts = sum(e["card"].points for e in self.current_trick)
         if winner in self.team1:
             self.team1_points += trick_pts
         else:
             self.team2_points += trick_pts
+        self.trick_history.append({
+            "trick_number": self.trick_number + 1,
+            "winner":       winner,
+            "points":       trick_pts,
+        })
         self.trick_number  += 1
         self.current_leader = winner
         self.current_trick  = []
         self.led_suit       = None
+        self.pending_trick_winner = None
         if self.trick_number == self.total_tricks:
             self._end_round()
 
@@ -547,6 +570,8 @@ class GameState:
             "total_tricks":     self.total_tricks,
             "team1_points":     self.team1_points,
             "team2_points":     self.team2_points,
+            "trick_history":         self.trick_history,
+            "pending_trick_winner":  self.pending_trick_winner,
             "scores":           self.scores,
             "chosen_cards":     [c.to_dict() for c in self.chosen_cards],
             "teammates_needed": self.teammates_needed() if self.phase == self.PHASE_PICK_TEAM else 0,

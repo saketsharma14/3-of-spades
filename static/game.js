@@ -445,6 +445,21 @@ function renderGameplay(state) {
   renderPartnerInfoPanel(state);
 
   renderCircularTable(state);
+  renderTrickWinners(state);
+
+  // "X wins the trick!" banner during the 5s reveal pause
+  const banner = document.getElementById("trick-winner-banner");
+  if (banner) {
+    if (state.pending_trick_winner) {
+      const isMe = state.pending_trick_winner === myName;
+      banner.textContent = isMe
+        ? "You win this trick! 🏆"
+        : `${state.pending_trick_winner} wins this trick! 🏆`;
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
+    }
+  }
 }
 
 // NEW: Renders the small panel near the top of the play screen that shows
@@ -562,6 +577,10 @@ function renderCircularTable(state) {
 
     const pos     = document.createElement("div");
     pos.className = "player-position";
+    // Mark the winning seat during the 5s pause
+    if (state.pending_trick_winner === player) {
+      pos.classList.add("trick-winner");
+    }
     pos.style.left = `calc(50% + ${x}px - 40px)`;
     pos.style.top  = `calc(50% + ${y}px - 50px)`;
 
@@ -582,6 +601,27 @@ function renderCircularTable(state) {
       </div>
     `;
     table.appendChild(pos);
+  });
+}
+
+// ─── RENDER: TRICK WINNERS SIDEBAR ───────────────────────────────────────────
+
+function renderTrickWinners(state) {
+  const list = document.getElementById("trick-winners-list");
+  if (!list) return;
+  list.innerHTML = "";
+  const history = state.trick_history || [];
+  if (history.length === 0) {
+    list.innerHTML = `<li class="empty">No tricks yet</li>`;
+    return;
+  }
+  history.forEach(entry => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span class="trick-num">#${entry.trick_number}</span>
+      <span class="trick-winner-name">${escapeHtml(entry.winner)}</span>
+    `;
+    list.appendChild(li);
   });
 }
 

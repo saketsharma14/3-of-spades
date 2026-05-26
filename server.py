@@ -252,6 +252,14 @@ def on_play_card(data):
     success, error = room.play_card(name, data.get("card", ""))
     if not success:
         return emit_error(error)
+
+    # If this play completed the trick, show the full trick + winner for 5s
+    # so everyone can see what just happened, THEN commit and advance.
+    if room.pending_trick_winner:
+        broadcast_state(room)            # everyone sees full trick + winner
+        socketio.sleep(5)                # pause so players can see
+        room.commit_pending_trick()      # award points, clear, advance
+
     if room.phase == GameState.PHASE_ROUND_END:
         socketio.emit("round_end", room.round_result(), to=room.room_code)
     # If that round ended the game (e.g. player left), emit game_over
